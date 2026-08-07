@@ -1,0 +1,110 @@
+[
+  {
+    "name": "Agent CR 000 main max",
+    "description": "Deterministic maximum-capability escape hatch.",
+    "enabled": true,
+    "chain_rule": false,
+    "cel_expression": "model == \"agent-main-max\"",
+    "targets": [{"provider": "bedrock", "model": "zai.glm-5", "weight": 1.0}],
+    "fallbacks": ["bedrock/moonshotai.kimi-k2-thinking", "bedrock/minimax.minimax-m2.5"],
+    "scope": "virtual_key",
+    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "priority": 200
+  },
+  {
+    "name": "Agent CR 010 main cheap",
+    "description": "Deterministic inexpensive escape hatch.",
+    "enabled": true,
+    "chain_rule": false,
+    "cel_expression": "model == \"agent-main-cheap\"",
+    "targets": [{"provider": "bedrock", "model": "apac.amazon.nova-lite-v1:0", "weight": 1.0}],
+    "fallbacks": ["bedrock/qwen.qwen3-coder-30b-a3b-v1:0", "bedrock/minimax.minimax-m2.5"],
+    "scope": "virtual_key",
+    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "priority": 210
+  },
+  {
+    "name": "Agent CR 100 main hard decision",
+    "description": "Complex or reasoning-heavy main orchestration, debugging, and general decisions.",
+    "enabled": true,
+    "chain_rule": false,
+    "cel_expression": "(model == \"agent-main-orchestrate\" || model == \"agent-main-debug\" || model == \"agent-main-general\") && (complexity_tier == \"COMPLEX\" || complexity_tier == \"REASONING\")",
+    "targets": [{"provider": "bedrock", "model": "zai.glm-5", "weight": 1.0}],
+    "fallbacks": ["bedrock/moonshotai.kimi-k2-thinking", "bedrock/minimax.minimax-m2.5"],
+    "scope": "virtual_key",
+    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "priority": 300
+  },
+  {
+    "name": "Agent CR 110 main normal agent",
+    "description": "Default main orchestration, debugging, implementation, and tool work.",
+    "enabled": true,
+    "chain_rule": false,
+    "cel_expression": "model == \"agent-main-orchestrate\" || model == \"agent-main-debug\" || model == \"agent-main-general\" || model == \"agent-main-implement\" || model == \"agent-main-tool-loop\"",
+    "targets": [{"provider": "bedrock", "model": "minimax.minimax-m2.5", "weight": 1.0}],
+    "fallbacks": ["bedrock/zai.glm-5", "bedrock/qwen.qwen3-coder-480b-a35b-v1:0"],
+    "scope": "virtual_key",
+    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "priority": 310
+  },
+  {
+    "name": "Agent CR 120 main hard explore",
+    "description": "Complex or reasoning-heavy main-agent exploration.",
+    "enabled": true,
+    "chain_rule": false,
+    "cel_expression": "model == \"agent-main-explore\" && (complexity_tier == \"COMPLEX\" || complexity_tier == \"REASONING\")",
+    "targets": [{"provider": "bedrock", "model": "minimax.minimax-m2.5", "weight": 1.0}],
+    "fallbacks": ["bedrock/zai.glm-5", "bedrock/qwen.qwen3-coder-480b-a35b-v1:0"],
+    "scope": "virtual_key",
+    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "priority": 320
+  },
+  {
+    "name": "Agent CR 130 main information",
+    "description": "Default main exploration and summarization, including unknown complexity.",
+    "enabled": true,
+    "chain_rule": false,
+    "cel_expression": "model == \"agent-main-explore\" || model == \"agent-main-summarize\"",
+    "targets": [{"provider": "bedrock", "model": "apac.amazon.nova-lite-v1:0", "weight": 1.0}],
+    "fallbacks": ["bedrock/qwen.qwen3-coder-30b-a3b-v1:0", "bedrock/minimax.minimax-m2.5"],
+    "scope": "virtual_key",
+    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "priority": 330
+  },
+  {
+    "name": "Agent CR 200 worker heavy",
+    "description": "Medium-or-harder worker coding, debugging, tool, orchestration, and general work.",
+    "enabled": true,
+    "chain_rule": false,
+    "cel_expression": "(model == \"agent-worker-orchestrate\" || model == \"agent-worker-implement\" || model == \"agent-worker-debug\" || model == \"agent-worker-tool-loop\" || model == \"agent-worker-general\") && (complexity_tier == \"MEDIUM\" || complexity_tier == \"COMPLEX\" || complexity_tier == \"REASONING\")",
+    "targets": [{"provider": "bedrock", "model": "qwen.qwen3-coder-480b-a35b-v1:0", "weight": 1.0}],
+    "fallbacks": ["bedrock/zai.glm-5", "bedrock/qwen.qwen3-coder-30b-a3b-v1:0"],
+    "scope": "virtual_key",
+    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "priority": 400
+  },
+  {
+    "name": "Agent CR 210 worker cheap information",
+    "description": "Simple worker exploration and summarization.",
+    "enabled": true,
+    "chain_rule": false,
+    "cel_expression": "(model == \"agent-worker-explore\" || model == \"agent-worker-summarize\") && complexity_tier == \"SIMPLE\"",
+    "targets": [{"provider": "bedrock", "model": "apac.amazon.nova-lite-v1:0", "weight": 1.0}],
+    "fallbacks": ["bedrock/qwen.qwen3-coder-30b-a3b-v1:0", "bedrock/minimax.minimax-m2.5"],
+    "scope": "virtual_key",
+    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "priority": 410
+  },
+  {
+    "name": "Agent CR 220 worker default",
+    "description": "All worker traffic not handled by a more specific worker rule.",
+    "enabled": true,
+    "chain_rule": false,
+    "cel_expression": "model == \"agent-worker-orchestrate\" || model == \"agent-worker-implement\" || model == \"agent-worker-debug\" || model == \"agent-worker-tool-loop\" || model == \"agent-worker-explore\" || model == \"agent-worker-summarize\" || model == \"agent-worker-general\"",
+    "targets": [{"provider": "bedrock", "model": "qwen.qwen3-coder-30b-a3b-v1:0", "weight": 1.0}],
+    "fallbacks": ["bedrock/minimax.minimax-m2.5"],
+    "scope": "virtual_key",
+    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "priority": 420
+  }
+]

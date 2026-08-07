@@ -1,0 +1,37 @@
+{
+  "client_aliases": {
+    "agent-main-auto": "classify main capability",
+    "agent-worker-auto": "classify worker capability",
+    "agent-main-max": "deterministic maximum lane",
+    "agent-main-cheap": "deterministic inexpensive lane"
+  },
+  "capabilities": [
+    "orchestrate",
+    "implement",
+    "debug",
+    "tool-loop",
+    "explore",
+    "summarize",
+    "general"
+  ],
+  "generated_lanes": {
+    "main": [
+      "agent-main-orchestrate",
+      "agent-main-implement",
+      "agent-main-debug",
+      "agent-main-tool-loop",
+      "agent-main-explore",
+      "agent-main-summarize",
+      "agent-main-general"
+    ],
+    "worker": [
+      "agent-worker-orchestrate",
+      "agent-worker-implement",
+      "agent-worker-debug",
+      "agent-worker-tool-loop",
+      "agent-worker-explore",
+      "agent-worker-summarize",
+      "agent-worker-general"
+    ]
+  }
+}

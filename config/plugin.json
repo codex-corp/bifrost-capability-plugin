@@ -1,0 +1,21 @@
+{
+  "name": "agent-capability-router",
+  "enabled": true,
+  "placement": "pre_builtin",
+  "order": 0,
+  "config": {
+    "shadow_mode": false,
+    "confidence_threshold": 0.7,
+    "history_messages": 8,
+    "active_roles": {
+      "main": true,
+      "worker": true
+    },
+    "aliases": {
+      "main": "agent-main-auto",
+      "worker": "agent-worker-auto",
+      "max": "agent-main-max",
+      "cheap": "agent-main-cheap"
+    }
+  }
+}
