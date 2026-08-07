@@ -1,0 +1,34 @@
+# Build output and dependency caches
+/.build/
+/.cache/
+*.so
+*.a
+*.out
+
+# Live gateway state and local operations
+/backups/
+/diagnostics/
+/.apply.lock
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# Machine-specific configuration
+/config/environment-detected.json
+/config/bifrost-matched.service
+/config/*.local.json
+
+# Credentials and environment overrides
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Language and editor state
+__pycache__/
+*.py[cod]
+.idea/
+.vscode/
+.DS_Store
