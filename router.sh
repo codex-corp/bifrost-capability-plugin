@@ -12,6 +12,7 @@ COMPATIBILITY_MARKER="$ROOT_DIR/.build/matched/compatible-runtime.json"
 RUNTIME_BIN="${BIFROST_RUNTIME_BIN:-$HOME/.local/lib/bifrost/v1.6.8-matched/bifrost-http}"
 INSTALLED_SO="$PLUGIN_DIR/$PLUGIN_NAME.so"
 BACKUP_ROOT="$ROOT_DIR/backups"
+INSTALL_CONFIG="$ROOT_DIR/.local/install.json"
 GO_IMAGE="golang:1.26.5"
 EXPECTED_TRANSPORT='"v1.6.8"'
 
@@ -64,6 +65,7 @@ status() {
 
 validate() {
   require_commands
+  "$ROOT_DIR/install.sh" check
   jq -e . "$ROOT_DIR/config/plugin.json" "$ROOT_DIR/config/models.json" "$ROOT_DIR/config/lanes.json" "$ROOT_DIR/config/routing-rules.json" >/dev/null
   [[ "$(api GET /api/version)" == "$EXPECTED_TRANSPORT" ]] || {
     echo "Expected Bifrost v1.6.8; found $(api GET /api/version)" >&2
@@ -73,11 +75,13 @@ validate() {
     echo "This package targets Linux/x86_64; found $(uname -s)/$(uname -m)" >&2
     exit 1
   }
+  api GET /api/governance/complexity-analyzer-config | jq -e \
+    '.tier_boundaries.simple_medium != null and .tier_boundaries.medium_complex != null and .tier_boundaries.complex_reasoning != null' >/dev/null || {
+    echo "Bifrost Complexity Router configuration is unavailable." >&2
+    exit 1
+  }
   python3 "$ROOT_DIR/scripts/inspect_db.py" validate-models \
     "$BIFROST_APP_DIR/config.db" "$ROOT_DIR/config/models.json"
-  api GET /api/governance/routing-rules | jq -e '
-    [.rules[] | select(.name | startswith("OC v2 "))] | length > 0
-  ' >/dev/null
   jq -e '
     length > 0 and
     (all(.[]; (.name | startswith("Agent CR ")) and
@@ -86,7 +90,7 @@ validate() {
       .scope == "virtual_key" and
       (.targets | length > 0)))
   ' "$ROOT_DIR/config/routing-rules.json" >/dev/null
-  echo "Validation passed: runtime, JSON, model inventory, OC v2 presence, and agent-only rule isolation."
+  echo "Validation passed: runtime, installation, model inventory, and agent-only rule isolation."
 }
 
 build() {
@@ -143,7 +147,8 @@ backup_live() {
 
 upsert_plugin() {
   local body
-  body="$(jq --arg path "$INSTALLED_SO" '. + {path:$path}' "$ROOT_DIR/config/plugin.json")"
+  body="$(jq --arg path "$INSTALLED_SO" --argjson shadow "$(jq '.shadow_mode' "$INSTALL_CONFIG")" \
+    '. + {path:$path} | .config.shadow_mode=$shadow' "$ROOT_DIR/config/plugin.json")"
   if api GET "/api/plugins/$PLUGIN_NAME" >/dev/null 2>&1; then
     api PUT "/api/plugins/$PLUGIN_NAME" -H 'Content-Type: application/json' --data "$body" >/dev/null
   else
@@ -163,7 +168,8 @@ upsert_rules() {
     else
       api POST /api/governance/routing-rules -H 'Content-Type: application/json' --data "$rule" >/dev/null
     fi
-  done < <(jq -r '.[] | @base64' "$ROOT_DIR/config/routing-rules.json")
+  done < <(jq --arg scope_id "$(jq -r '.virtual_key.id' "$INSTALL_CONFIG")" \
+    'map(.scope_id=$scope_id) | .[] | @base64' "$ROOT_DIR/config/routing-rules.json" -r)
 }
 
 apply() {
@@ -181,7 +187,7 @@ apply() {
   upsert_plugin
   upsert_rules
   printf '%s\n' "$backup_dir" >"$BACKUP_ROOT/latest"
-  echo "Applied in shadow mode. Backup: $backup_dir"
+  echo "Applied with shadow_mode=$(jq -r '.shadow_mode' "$INSTALL_CONFIG"). Backup: $backup_dir"
 }
 
 rollback() {
