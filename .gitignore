@@ -18,6 +18,7 @@
 /config/environment-detected.json
 /config/bifrost-matched.service
 /config/*.local.json
+/.local/
 
 # Credentials and environment overrides
 .env

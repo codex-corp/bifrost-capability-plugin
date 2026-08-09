@@ -6,9 +6,9 @@
     "chain_rule": false,
     "cel_expression": "model == \"agent-main-max\"",
     "targets": [{"provider": "bedrock", "model": "zai.glm-5", "weight": 1.0}],
-    "fallbacks": ["bedrock/moonshotai.kimi-k2-thinking", "bedrock/minimax.minimax-m2.5"],
+    "fallbacks": ["bedrock/moonshot.kimi-k2-thinking", "bedrock/minimax.minimax-m2.5"],
     "scope": "virtual_key",
-    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "scope_id": "INSTALL_REQUIRED",
     "priority": 200
   },
   {
@@ -20,7 +20,7 @@
     "targets": [{"provider": "bedrock", "model": "apac.amazon.nova-lite-v1:0", "weight": 1.0}],
     "fallbacks": ["bedrock/qwen.qwen3-coder-30b-a3b-v1:0", "bedrock/minimax.minimax-m2.5"],
     "scope": "virtual_key",
-    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "scope_id": "INSTALL_REQUIRED",
     "priority": 210
   },
   {
@@ -30,9 +30,9 @@
     "chain_rule": false,
     "cel_expression": "(model == \"agent-main-orchestrate\" || model == \"agent-main-debug\" || model == \"agent-main-general\") && (complexity_tier == \"COMPLEX\" || complexity_tier == \"REASONING\")",
     "targets": [{"provider": "bedrock", "model": "zai.glm-5", "weight": 1.0}],
-    "fallbacks": ["bedrock/moonshotai.kimi-k2-thinking", "bedrock/minimax.minimax-m2.5"],
+    "fallbacks": ["bedrock/moonshot.kimi-k2-thinking", "bedrock/minimax.minimax-m2.5"],
     "scope": "virtual_key",
-    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "scope_id": "INSTALL_REQUIRED",
     "priority": 300
   },
   {
@@ -44,7 +44,7 @@
     "targets": [{"provider": "bedrock", "model": "minimax.minimax-m2.5", "weight": 1.0}],
     "fallbacks": ["bedrock/zai.glm-5", "bedrock/qwen.qwen3-coder-480b-a35b-v1:0"],
     "scope": "virtual_key",
-    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "scope_id": "INSTALL_REQUIRED",
     "priority": 310
   },
   {
@@ -56,7 +56,7 @@
     "targets": [{"provider": "bedrock", "model": "minimax.minimax-m2.5", "weight": 1.0}],
     "fallbacks": ["bedrock/zai.glm-5", "bedrock/qwen.qwen3-coder-480b-a35b-v1:0"],
     "scope": "virtual_key",
-    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "scope_id": "INSTALL_REQUIRED",
     "priority": 320
   },
   {
@@ -68,7 +68,7 @@
     "targets": [{"provider": "bedrock", "model": "apac.amazon.nova-lite-v1:0", "weight": 1.0}],
     "fallbacks": ["bedrock/qwen.qwen3-coder-30b-a3b-v1:0", "bedrock/minimax.minimax-m2.5"],
     "scope": "virtual_key",
-    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "scope_id": "INSTALL_REQUIRED",
     "priority": 330
   },
   {
@@ -80,7 +80,7 @@
     "targets": [{"provider": "bedrock", "model": "qwen.qwen3-coder-480b-a35b-v1:0", "weight": 1.0}],
     "fallbacks": ["bedrock/zai.glm-5", "bedrock/qwen.qwen3-coder-30b-a3b-v1:0"],
     "scope": "virtual_key",
-    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "scope_id": "INSTALL_REQUIRED",
     "priority": 400
   },
   {
@@ -92,7 +92,7 @@
     "targets": [{"provider": "bedrock", "model": "apac.amazon.nova-lite-v1:0", "weight": 1.0}],
     "fallbacks": ["bedrock/qwen.qwen3-coder-30b-a3b-v1:0", "bedrock/minimax.minimax-m2.5"],
     "scope": "virtual_key",
-    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "scope_id": "INSTALL_REQUIRED",
     "priority": 410
   },
   {
@@ -104,7 +104,7 @@
     "targets": [{"provider": "bedrock", "model": "qwen.qwen3-coder-30b-a3b-v1:0", "weight": 1.0}],
     "fallbacks": ["bedrock/minimax.minimax-m2.5"],
     "scope": "virtual_key",
-    "scope_id": "a99bb90b-584a-4466-bfab-e752467ba783",
+    "scope_id": "INSTALL_REQUIRED",
     "priority": 420
   }
 ]

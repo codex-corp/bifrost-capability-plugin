@@ -106,6 +106,8 @@ All other traffic bypasses the plugin. Deterministic aliases such as `agent-main
 - `curl`, `jq`, Python 3, `sha256sum`, and `flock`
 - Bifrost v1.6.8 source at revision `dcf245fdb22fe39f77c721be9b8c76ad2da32b9b`
 - A running Bifrost v1.6.8 gateway for validation and installation
+- Bifrost Complexity Router configured and available
+- An active Virtual Key that permits Bedrock and every configured model
 
 Go plugins require the host and plugin to share the exact source graph, Go toolchain, CGO mode, build tags, and build settings. A separately compiled `.so` is not safe merely because its version numbers match.
 
@@ -128,16 +130,38 @@ cd bifrost-capability-plugin
 
 Review and adapt:
 
-- `config/plugin.json`: aliases, active roles, confidence, and shadow mode.
-- `config/models.json`: available provider/model identifiers and Virtual Key ID.
-- `config/routing-rules.json`: CEL rules, targets, fallbacks, scope, and priorities.
+- `config/plugin.json`: aliases, active roles, and confidence defaults.
+- `config/models.json`: Bedrock model identifiers available to your provider key.
+- `config/routing-rules.json`: CEL rules, targets, fallbacks, and priorities.
 - `config/lanes.json`: human-readable lane inventory.
 
 Never commit credentials or an exported Bifrost database.
 
+Configure an existing Virtual Key before validation. The interactive installer
+lists safe Virtual Key metadata and verifies that the selected key is active,
+permits Bedrock, and permits every configured target and fallback. Read the
+[Bifrost Virtual Keys configuration guide](https://docs.getbifrost.ai/features/governance/virtual-keys#configuration)
+before creating or selecting a key. Machine-specific settings are written to
+ignored `.local/install.json`.
+
+```bash
+./install.sh configure
+./install.sh check
+```
+
+The default is safe shadow mode. After observing classification logs, rerun with
+`--live` and apply again to enable request rewriting:
+
+```bash
+./install.sh configure --virtual-key-id '<your-virtual-key-id>' --live
+```
+
+Use `--virtual-key-id` for scripted/non-interactive setup.
+
 ## Build and verify
 
 ```bash
+./install.sh check
 ./router.sh validate
 ./router.sh build
 ./router.sh test-candidate
@@ -219,6 +243,7 @@ Available entry aliases:
 For model, fallback, CEL, or plugin-setting changes:
 
 ```bash
+./install.sh check
 ./router.sh validate
 ./router.sh apply
 ./router.sh status
