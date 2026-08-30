@@ -2,13 +2,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SOURCE_DIR="${BIFROST_SOURCE_DIR:-/tmp/bifrost-v1.6.8}"
+SOURCE_DIR="${BIFROST_SOURCE_DIR:-/tmp/bifrost-v2.0.0}"
 OUTPUT_DIR="$ROOT_DIR/.build/matched"
-SNAPSHOT_DIR="$ROOT_DIR/.build/source-v1.6.8"
+SNAPSHOT_DIR="$ROOT_DIR/.build/source-v2.0.0"
 CACHE_DIR="$ROOT_DIR/.cache/matched"
-GO_IMAGE="golang:1.26.5"
+GO_IMAGE="golang:1.27.0"
 NODE_IMAGE="node:22.12.0"
-EXPECTED_REVISION="dcf245fdb22fe39f77c721be9b8c76ad2da32b9b"
+EXPECTED_REVISION="e4a30d6041c0446603aea615bc5da340dac001b1"
 
 [[ -d "$SOURCE_DIR/.git" ]] || { echo "Missing Bifrost checkout: $SOURCE_DIR" >&2; exit 1; }
 [[ "$(git -C "$SOURCE_DIR" rev-parse HEAD)" == "$EXPECTED_REVISION" ]] || {
@@ -42,7 +42,7 @@ docker run --rm --user "$(id -u):$(id -g)" \
     BUILD_TAGS=netgo,osusergo,sqlite_static
     go test -tags="$BUILD_TAGS" /src/transports/.agent-router-build/router
     CGO_ENABLED=1 go build -tags="$BUILD_TAGS" -trimpath \
-      -ldflags="-w -s -X main.Version=v1.6.8" \
+      -ldflags="-w -s -X main.Version=v2.0.0" \
       -o /out/bifrost-http ./bifrost-http
     CGO_ENABLED=1 go build -tags="$BUILD_TAGS" -trimpath -buildmode=plugin -o /out/official-llm-only.so ./.agent-router-build/official-llm-only
     CGO_ENABLED=1 go build -tags="$BUILD_TAGS" -trimpath -buildmode=plugin -o /out/abi-probe.so ./.agent-router-build/abi-probe

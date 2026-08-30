@@ -104,10 +104,12 @@ All other traffic bypasses the plugin. Deterministic aliases such as `agent-main
 - Linux `amd64`
 - Docker
 - `curl`, `jq`, Python 3, `sha256sum`, and `flock`
-- Bifrost v1.6.8 source at revision `dcf245fdb22fe39f77c721be9b8c76ad2da32b9b`
-- A running Bifrost v1.6.8 gateway for validation and installation
+- Bifrost v2.0.0 source at revision `e4a30d6041c0446603aea615bc5da340dac001b1`
+- Go 1.27.0, Bifrost core v1.8.3, and framework v1.6.0
+- A running Bifrost v2.0.0 gateway for validation and installation
 - Bifrost Complexity Router configured and available
 - An active Virtual Key that permits Bedrock and every configured model
+- Dashboard administrator authentication when creating or changing a custom plugin path
 
 Go plugins require the host and plugin to share the exact source graph, Go toolchain, CGO mode, build tags, and build settings. A separately compiled `.so` is not safe merely because its version numbers match.
 
@@ -116,9 +118,9 @@ Go plugins require the host and plugin to share the exact source graph, Go toolc
 Clone the matching Bifrost source:
 
 ```bash
-git clone --branch v1.6.8 https://github.com/maximhq/bifrost.git /tmp/bifrost-v1.6.8
-cd /tmp/bifrost-v1.6.8
-git checkout dcf245fdb22fe39f77c721be9b8c76ad2da32b9b
+git clone https://github.com/maximhq/bifrost.git /tmp/bifrost-v2.0.0
+cd /tmp/bifrost-v2.0.0
+git checkout e4a30d6041c0446603aea615bc5da340dac001b1
 ```
 
 Clone this repository and configure the deployment templates:
@@ -181,15 +183,15 @@ Use `--virtual-key-id` for scripted/non-interactive setup.
 First deploy the matched Bifrost executable at a stable path and configure your service to use it. Keep the original service definition and executable as rollback artifacts.
 
 ```bash
-install -d "$HOME/.local/lib/bifrost/v1.6.8-matched"
+install -d "$HOME/.local/lib/bifrost/v2.0.0-matched"
 install -m 0755 .build/matched/bifrost-http \
-  "$HOME/.local/lib/bifrost/v1.6.8-matched/bifrost-http"
+  "$HOME/.local/lib/bifrost/v2.0.0-matched/bifrost-http"
 ```
 
 Start the matched host with the same address and app directory as the existing gateway:
 
 ```text
-~/.local/lib/bifrost/v1.6.8-matched/bifrost-http \
+~/.local/lib/bifrost/v2.0.0-matched/bifrost-http \
   -host 127.0.0.1 \
   -port 10020 \
   -app-dir ~/.config/bifrost
@@ -212,6 +214,11 @@ Then install the plugin and additive `Agent CR` rules:
 ```
 
 `apply` refuses to continue unless the running executable matches the isolated, tested candidate. It backs up the current Bifrost configuration before changing the plugin or rules.
+For a new custom-plugin registration, export `BIFROST_ADMIN_BEARER_TOKEN` or
+`BIFROST_ADMIN_BASIC` with genuine administrator credentials. Bifrost v2 rejects
+custom `.so` path mutations when dashboard authentication is disabled. Repeated
+applies skip this protected mutation when the installed configuration already
+matches.
 
 ## Usage
 
@@ -260,14 +267,19 @@ Host and plugin must move together:
 ./router.sh test-candidate
 ```
 
+When upgrading from Bifrost v1.x, back up `config.json`, `config.db*`, and
+`logs.db*` before first starting v2. Bifrost v2.0.0 includes non-reversible
+storage migrations; after they run, restore the database backup as well as the
+old executable if a downgrade is required.
+
 Then:
 
-1. Disable the existing plugin.
-2. Atomically install the newly matched host and plugin.
-3. Restart Bifrost.
-4. Verify health, UI, version, and runtime hash.
-5. Run `./router.sh apply`.
-6. Test representative main and worker requests.
+1. Stop Bifrost and take the database and service-definition backup.
+2. Install the newly matched host at a versioned path.
+3. Point the service at that host and restart Bifrost.
+4. Verify health, UI, and `v2.0.0` before continuing.
+5. Run `./router.sh validate`, then `./router.sh apply`.
+6. Verify all nine `Agent CR` rules and test representative main and worker requests.
 
 Never load a newly built plugin into an older host process.
 
@@ -301,7 +313,7 @@ Inspect Bifrost routing logs for the capability lane, complexity tier, first mat
 docker run --rm \
   -v "$PWD:/src" \
   -w /src \
-  golang:1.26.5 \
+  golang:1.27.0 \
   sh -c 'go test ./... && go vet ./...'
 ```
 
@@ -309,4 +321,4 @@ The classifier is deterministic and dependency-light. Add table-driven tests for
 
 ## License
 
-No license has been selected yet. Add an OSI-approved license before publishing the repository as open source.
+MIT. See `LICENSE`.

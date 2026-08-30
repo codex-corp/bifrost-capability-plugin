@@ -179,7 +179,7 @@ def main() -> None:
             raise SystemExit(f"Shadow request failed with {status}: {response[:500]}")
         if root_status != 200 or "<!doctype html>" not in root_response.lower():
             raise SystemExit(f"Embedded UI check failed with {root_status}: {root_response[:200]}")
-        if version_status != 200 or json.loads(version_response) != "v1.6.8":
+        if version_status != 200 or json.loads(version_response) != "v2.0.0":
             raise SystemExit(f"Version check failed with {version_status}: {version_response[:200]}")
 
         result_path.write_text(json.dumps(result, indent=2), encoding="utf-8")

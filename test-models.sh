@@ -26,7 +26,7 @@ trap 'rm -f "$rules_file" "$main_models_file" "$fallback_models_file"' EXIT
 
 log_info "Fetching enabled '$RULE_PREFIX' routing rules from Bifrost..."
 
-curl -fsS "$BIFROST_URL/api/governance/routing-rules" > "$rules_file"
+curl -fsS "$BIFROST_URL/api/routing/rules" > "$rules_file"
 
 # Extract unique primary targets from the current Agent CR rule snapshot.
 jq -r --arg prefix "$RULE_PREFIX" '

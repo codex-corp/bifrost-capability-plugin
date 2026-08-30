@@ -1,10 +1,11 @@
 {
   "runtime": {
-    "transport": "v1.6.8",
-    "go": "1.26.5",
+    "transport": "v2.0.0",
+    "go": "1.27.0",
     "goos": "linux",
     "goarch": "amd64",
-    "core": "v1.7.6"
+    "core": "v1.8.3",
+    "framework": "v1.6.0"
   },
   "scope": {
     "type": "virtual_key",
