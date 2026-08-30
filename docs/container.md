@@ -19,14 +19,18 @@ Use the exact release tag for production deployments:
 docker pull ghcr.io/codex-corp/bifrost-capability-plugin:bifrost-v2.0.0-r1
 ```
 
-Convenience aliases are also published:
+Convenience aliases are also published for the newest `bifrost-v2.0.0-rN` release:
 
 ```text
 bifrost-v2.0.0
 latest
 ```
 
-Prefer the immutable release tag, or pin the resulting image digest.
+Publishing or re-running an older release only updates its exact release tag; it does not roll the mutable aliases backward.
+
+Prefer the versioned release tag, or pin the resulting image digest when you need immutable deployment identity.
+
+After the first publication, confirm the package visibility in GitHub Packages. Anonymous `docker pull` works only when the GHCR package is public; otherwise authenticate to GHCR or change the package visibility to Public.
 
 ## Run
 
@@ -66,9 +70,9 @@ docker run --rm --entrypoint cat \
 
 ## Existing release
 
-The `Publish GHCR Runtime` GitHub Actions workflow accepts an existing release tag. It downloads that release bundle, verifies `SHA256SUMS`, extracts the already-tested matched artifacts, builds the runtime image, and publishes it to GHCR.
+The `Publish GHCR Runtime` GitHub Actions workflow accepts an existing release tag. It downloads all checksum-covered release assets, verifies `SHA256SUMS`, extracts the already-tested matched artifacts, resolves the source commit behind the release tag, builds the runtime image, and publishes it to GHCR.
 
-This is the correct path for `bifrost-v2.0.0-r1`, because it avoids rebuilding an old release from newer source.
+This is the correct path for `bifrost-v2.0.0-r1`, because it avoids rebuilding the Bifrost/plugin ABI pair from newer source. The exact image tag is always published; `bifrost-v2.0.0` and `latest` are updated only when the selected release is the newest matching `rN` release.
 
 ## Future releases
 
@@ -84,3 +88,5 @@ ghcr.io/codex-corp/bifrost-capability-plugin:<release-tag>
 ghcr.io/codex-corp/bifrost-capability-plugin:bifrost-v2.0.0
 ghcr.io/codex-corp/bifrost-capability-plugin:latest
 ```
+
+The version and `latest` aliases track only the newest matching release; older release reruns cannot move them backward.
