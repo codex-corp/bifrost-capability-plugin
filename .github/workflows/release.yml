@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - bifrost-v2.0.0-r*
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - name: Check out exact Bifrost source
+        run: |
+          git clone --filter=blob:none https://github.com/maximhq/bifrost.git /tmp/bifrost-v2.0.0
+          git -C /tmp/bifrost-v2.0.0 checkout e4a30d6041c0446603aea615bc5da340dac001b1
+      - name: Build and test ABI-matched release
+        run: |
+          set -euo pipefail
+          scripts/build_matched.sh
+          python3 scripts/test_candidate.py
+          RELEASE_TAG="$GITHUB_REF_NAME" scripts/package_release.sh
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          assets=(.build/release/*)
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+              --verify-tag \
+              --title "Bifrost Capability Router for Bifrost v2.0.0" \
+              --generate-notes
+          fi
+      - name: Verify published downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          verify_dir="$(mktemp -d)"
+          trap 'rm -rf "$verify_dir"' EXIT
+          gh release download "$GITHUB_REF_NAME" --dir "$verify_dir"
+          (cd "$verify_dir" && sha256sum -c SHA256SUMS)
+          asset="agent-capability-router-bifrost-v2.0.0-linux-amd64-glibc.so"
+          curl -fsSL "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${asset}" -o "$verify_dir/http-download.so"
+          cmp "$verify_dir/$asset" "$verify_dir/http-download.so"

@@ -19,6 +19,20 @@ UPSTREAM_PORT = PORT + 1
 
 
 class ShadowUpstream(BaseHTTPRequestHandler):
+    plugin_downloads = 0
+
+    def do_GET(self) -> None:
+        if self.path != "/agent-capability-router.so":
+            self.send_error(404)
+            return
+        content = (BUILD / "agent-capability-router.so").read_bytes()
+        type(self).plugin_downloads += 1
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
+
     def do_POST(self) -> None:
         length = int(self.headers.get("Content-Length", "0"))
         self.rfile.read(length)
@@ -75,6 +89,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="bifrost-matched-test.") as directory:
         app_dir = pathlib.Path(directory)
         config = {
+            "server": {"plugin_download_private_allowlist": ["127.0.0.1"]},
             "config_store": {"enabled": False},
             "client": {"enable_logging": True, "log_level": "debug"},
             "providers": {
@@ -93,7 +108,9 @@ def main() -> None:
                 {
                     "name": "agent-capability-router",
                     "enabled": True,
-                    "path": str(required[3]),
+                    "path": f"http://127.0.0.1:{UPSTREAM_PORT}/agent-capability-router.so",
+                    "placement": "pre_builtin",
+                    "order": 0,
                     "config": {"shadow_mode": True, "active_roles": {"main": True, "worker": True}},
                 },
             ],
@@ -157,6 +174,8 @@ def main() -> None:
             "request_status": status,
             "request_response": response[:1000],
             "router_mode": "shadow",
+            "router_source": "http",
+            "plugin_downloads": ShadowUpstream.plugin_downloads,
             "shadow_request_processed": status == 200,
             "artifacts": {path.name: sha256(path) for path in required},
         }
@@ -177,6 +196,8 @@ def main() -> None:
             )
         if status != 200:
             raise SystemExit(f"Shadow request failed with {status}: {response[:500]}")
+        if ShadowUpstream.plugin_downloads != 1:
+            raise SystemExit(f"Expected one HTTP plugin download; observed {ShadowUpstream.plugin_downloads}")
         if root_status != 200 or "<!doctype html>" not in root_response.lower():
             raise SystemExit(f"Embedded UI check failed with {root_status}: {root_response[:200]}")
         if version_status != 200 or json.loads(version_response) != "v2.0.0":

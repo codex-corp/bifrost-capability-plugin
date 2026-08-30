@@ -4,7 +4,7 @@
   "placement": "pre_builtin",
   "order": 0,
   "config": {
-    "shadow_mode": false,
+    "shadow_mode": true,
     "confidence_threshold": 0.7,
     "history_messages": 8,
     "active_roles": {

@@ -99,7 +99,90 @@ agent-worker-auto -> agent-worker-{capability}
 
 All other traffic bypasses the plugin. Deterministic aliases such as `agent-main-max`, `agent-main-cheap`, and existing `codex-*` routes remain under Bifrost control.
 
-## Requirements
+## Release compatibility
+
+The published plugin and Bifrost executable are one tested ABI pair. Bifrost's
+standard static executable cannot load Go plugins, and a `.so` built with a
+different source graph, Go toolchain, architecture, libc, or build flags is not
+compatible even when both products report `v2.0.0`.
+
+The first release supports Linux AMD64 with glibc only. Do not install its `.so`
+into Bifrost's stock static executable, Alpine/musl, ARM64, or an independently
+built dynamic host.
+
+## Install the release
+
+Download all four assets from release `bifrost-v2.0.0-r1` and verify them:
+
+```bash
+base='https://github.com/codex-corp/bifrost-capability-plugin/releases/download/bifrost-v2.0.0-r1'
+curl -fLO "$base/agent-capability-router-bifrost-v2.0.0-linux-amd64-glibc.so"
+curl -fLO "$base/bifrost-http-bifrost-v2.0.0-linux-amd64-glibc"
+curl -fLO "$base/bifrost-capability-plugin-bifrost-v2.0.0-r1-linux-amd64-glibc.tar.gz"
+curl -fLO "$base/SHA256SUMS"
+sha256sum -c SHA256SUMS
+tar -xzf bifrost-capability-plugin-bifrost-v2.0.0-r1-linux-amd64-glibc.tar.gz
+cd bifrost-capability-plugin-bifrost-v2.0.0-r1-linux-amd64-glibc
+```
+
+Install the matched host at a versioned path, point your Bifrost service at it,
+and start it with the existing app directory. Keep the previous executable and
+database backup for rollback.
+
+```bash
+install -d "$HOME/.local/lib/bifrost/v2.0.0-matched"
+install -m 0755 .build/matched/bifrost-http \
+  "$HOME/.local/lib/bifrost/v2.0.0-matched/bifrost-http"
+curl -fsS http://127.0.0.1:10020/health
+curl -fsS http://127.0.0.1:10020/api/version
+```
+
+Enable Dashboard administrator authentication, then open **Plugins → Install
+New Plugin** and enter:
+
+```text
+Name: agent-capability-router
+Path/URL: https://github.com/codex-corp/bifrost-capability-plugin/releases/download/bifrost-v2.0.0-r1/agent-capability-router-bifrost-v2.0.0-linux-amd64-glibc.so
+```
+
+Enable configuration and paste the plugin-specific object:
+
+```json
+{
+  "shadow_mode": true,
+  "confidence_threshold": 0.7,
+  "history_messages": 8,
+  "active_roles": {"main": true, "worker": true},
+  "aliases": {
+    "main": "agent-main-auto",
+    "worker": "agent-worker-auto",
+    "max": "agent-main-max",
+    "cheap": "agent-main-cheap"
+  }
+}
+```
+
+Bifrost places new custom plugins after its built-ins by default. Open **Edit
+Plugin Sequence**, move `agent-capability-router` above **Built-in Plugins**, and
+save. The resulting placement must be `pre_builtin`, order `0`, so capability
+metadata exists before governance routing evaluates the request.
+
+Configure the Bedrock model inventory and Virtual Key, then install only the
+nine additive routing rules. This does not replace the Dashboard-managed plugin
+path or configuration.
+
+```bash
+./install.sh configure
+./router.sh validate
+./router.sh apply-rules
+./router.sh status
+```
+
+Inspect shadow logs with `./router.sh logs`. When classifications and rule
+matches are correct, edit the plugin in the Dashboard and change
+`shadow_mode` to `false`.
+
+## Source-build requirements
 
 - Linux `amd64`
 - Docker
@@ -113,7 +196,7 @@ All other traffic bypasses the plugin. Deterministic aliases such as `agent-main
 
 Go plugins require the host and plugin to share the exact source graph, Go toolchain, CGO mode, build tags, and build settings. A separately compiled `.so` is not safe merely because its version numbers match.
 
-## Setup
+## Build from source
 
 Clone the matching Bifrost source:
 
@@ -206,7 +289,8 @@ curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:10020/
 ./router.sh status
 ```
 
-Then install the plugin and additive `Agent CR` rules:
+To let the command-line tooling manage both the local plugin file and the
+additive `Agent CR` rules:
 
 ```bash
 ./router.sh apply
@@ -247,7 +331,17 @@ Available entry aliases:
 
 ## Updating configuration
 
-For model, fallback, CEL, or plugin-setting changes:
+For Dashboard-managed installations, update model, fallback, or CEL templates
+with the rules-only path:
+
+```bash
+./install.sh check
+./router.sh validate
+./router.sh apply-rules
+./router.sh status
+```
+
+Edit plugin settings in the Dashboard. For command-line-managed installations:
 
 ```bash
 ./install.sh check
@@ -283,6 +377,11 @@ Then:
 
 Never load a newly built plugin into an older host process.
 
+For a published update, download and verify the new release, replace the host
+with the host from that same release, then delete and reinstall the Dashboard
+plugin using the new release URL. Do not combine a host from one release with a
+plugin from another.
+
 ## Rollback
 
 Remove only this plugin and its `Agent CR` rules:
@@ -293,6 +392,10 @@ Remove only this plugin and its `Agent CR` rules:
 
 Existing non-`Agent CR` rules are preserved. Restore the previous service executable separately if the matched host itself must be rolled back.
 
+For a Dashboard-managed installation, remove the plugin in the Dashboard first,
+then run `./router.sh rollback` to remove the additive rules. The plugin delete
+performed by `rollback` is harmless when it is already absent.
+
 ## Troubleshooting
 
 ### `plugin.Open` or `plugin has empty pluginpath`
@@ -301,7 +404,7 @@ The host and plugin were not built from an identical environment. Run `build` an
 
 ### `could not auto resolve a provider`
 
-The plugin is disabled, still in shadow mode, or ordered after provider resolution. Confirm it is active, uses `pre_builtin` placement, and receives `agent-main-auto` or `agent-worker-auto`.
+The plugin is disabled, still in shadow mode, or ordered after provider resolution. Confirm it is active, uses `pre_builtin` placement with order `0`, and receives `agent-main-auto` or `agent-worker-auto`.
 
 ### Unexpected model
 

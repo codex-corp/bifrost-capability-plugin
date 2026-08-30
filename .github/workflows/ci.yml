@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Validate source and configuration
+        run: |
+          set -euo pipefail
+          jq -e . config/*.json >/dev/null
+          jq -e 'length == 9 and all(.[]; (.name | startswith("Agent CR ")) and .scope == "virtual_key" and .scope_id == "INSTALL_REQUIRED")' config/routing-rules.json >/dev/null
+          bash -n router.sh install.sh test-models.sh scripts/*.sh
+          python3 -m py_compile scripts/*.py
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -e GOCACHE=/tmp/go-build -e GOMODCACHE=/tmp/go-mod \
+            -v "$PWD:/src" -w /src golang:1.27.0 sh -ec '
+            files=$(gofmt -l *.go abi-probe/*.go)
+            test -z "$files" || { printf "%s\n" "$files"; exit 1; }
+            go test ./...
+            go vet ./...
+          '
+          git diff --exit-code
+          git diff --check

@@ -53,5 +53,8 @@ docker run --rm --user "$(id -u):$(id -g)" \
     go version -m /out/agent-capability-router.so > /out/agent-capability-router.buildinfo
   '
 
-sha256sum "$OUTPUT_DIR"/bifrost-http "$OUTPUT_DIR"/*.so > "$OUTPUT_DIR/SHA256SUMS"
+(
+  cd "$OUTPUT_DIR"
+  sha256sum bifrost-http *.so >SHA256SUMS
+)
 echo "Matched candidate built under: $OUTPUT_DIR"

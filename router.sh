@@ -196,6 +196,20 @@ apply() {
   echo "Applied with shadow_mode=$(jq -r '.shadow_mode' "$INSTALL_CONFIG"). Backup: $backup_dir"
 }
 
+apply_rules() {
+  require_commands
+  validate
+  exec 9>"$ROOT_DIR/.apply.lock"
+  flock -n 9 || { echo "Another router operation is running." >&2; exit 1; }
+  local stamp backup_dir
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  backup_dir="$BACKUP_ROOT/$stamp"
+  backup_live "$backup_dir"
+  upsert_rules
+  printf '%s\n' "$backup_dir" >"$BACKUP_ROOT/latest"
+  echo "Applied Agent CR rules only. Dashboard-managed plugin configuration was not changed. Backup: $backup_dir"
+}
+
 rollback() {
   require_commands
   exec 9>"$ROOT_DIR/.apply.lock"
@@ -219,7 +233,7 @@ logs() {
 }
 
 usage() {
-  echo "Usage: $0 {status|validate|build|test-candidate|apply|rollback|logs}" >&2
+  echo "Usage: $0 {status|validate|build|test-candidate|apply|apply-rules|rollback|logs}" >&2
   exit 2
 }
 
@@ -229,6 +243,7 @@ case "${1:-}" in
   build) build ;;
   test-candidate) test_candidate ;;
   apply) apply ;;
+  apply-rules) apply_rules ;;
   rollback) rollback ;;
   logs) logs ;;
   *) usage ;;
