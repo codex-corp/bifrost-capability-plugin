@@ -1,0 +1,9 @@
+*
+!.build/
+!.build/matched/
+!.build/matched/bifrost-http
+!.build/matched/agent-capability-router.so
+!.build/matched/SHA256SUMS
+!.build/matched/compatible-runtime.json
+!.build/matched/isolated-test-result.json
+!Dockerfile
