@@ -23,6 +23,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Download and verify tested release bundle
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -38,6 +39,7 @@ jobs:
           git fetch --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
           release_sha="$(git rev-parse "${RELEASE_TAG}^{commit}")"
           echo "RELEASE_SHA=$release_sha" >> "$GITHUB_ENV"
+          echo "sha=$release_sha" >> "$GITHUB_OUTPUT"
 
           release_dir="$(mktemp -d)"
           gh release download "$RELEASE_TAG" \
@@ -59,6 +61,28 @@ jobs:
           cp -a "$bundle_dir/.build/matched" .build/matched
           (cd .build/matched && sha256sum -c SHA256SUMS)
 
+          latest_tag="$(
+            gh release list --repo "$GITHUB_REPOSITORY" --limit 100 \
+              --json tagName,isDraft,isPrerelease \
+              --jq '.[] | select(.isDraft == false and .isPrerelease == false) | .tagName' |
+              grep -E '^bifrost-v2\.0\.0-r[1-9][0-9]*$' |
+              sort -V |
+              tail -n 1
+          )"
+          test -n "$latest_tag"
+
+          {
+            echo 'tags<<EOF'
+            echo "$IMAGE_NAME:$RELEASE_TAG"
+            if [[ "$RELEASE_TAG" == "$latest_tag" ]]; then
+              echo "$IMAGE_NAME:bifrost-v2.0.0"
+              echo "$IMAGE_NAME:latest"
+            else
+              echo "Keeping mutable aliases on newer release $latest_tag" >&2
+            fi
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
         with:
@@ -69,25 +93,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435
 
-      - name: Build and push immutable runtime image
+      - name: Build and push release runtime image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:${{ env.RELEASE_TAG }}
-            ${{ env.IMAGE_NAME }}:bifrost-v2.0.0
-            ${{ env.IMAGE_NAME }}:latest
+          tags: ${{ steps.release.outputs.tags }}
           build-args: |
             RELEASE_TAG=${{ env.RELEASE_TAG }}
             BIFROST_VERSION=v2.0.0
-            VCS_REF=${{ env.RELEASE_SHA }}
+            VCS_REF=${{ steps.release.outputs.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ env.RELEASE_TAG }}
-            org.opencontainers.image.revision=${{ env.RELEASE_SHA }}
+            org.opencontainers.image.revision=${{ steps.release.outputs.sha }}
 
       - name: Verify published image
         run: |
