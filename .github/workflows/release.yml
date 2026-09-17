@@ -73,7 +73,7 @@ jobs:
             gh release list --repo "$GITHUB_REPOSITORY" --limit 100 \
               --json tagName,isDraft,isPrerelease \
               --jq '.[] | select(.isDraft == false and .isPrerelease == false) | .tagName' |
-              grep -E '^bifrost-v2\.0\.0-r[1-9][0-9]*$' |
+              grep -E '^bifrost-v[0-9]+\.[0-9]+\.[0-9]+-r[1-9][0-9]*$' |
               sort -V |
               tail -n 1
           )"
@@ -84,7 +84,7 @@ jobs:
             echo 'tags<<EOF'
             echo "$image_name:$GITHUB_REF_NAME"
             if [[ "$GITHUB_REF_NAME" == "$latest_tag" ]]; then
-              echo "$image_name:bifrost-v2.0.0"
+              echo "$image_name:$BIFROST_VERSION"
               echo "$image_name:latest"
             else
               echo "Keeping mutable aliases on newer release $latest_tag" >&2
@@ -109,7 +109,7 @@ jobs:
           tags: ${{ steps.image.outputs.tags }}
           build-args: |
             RELEASE_TAG=${{ github.ref_name }}
-            BIFROST_VERSION=v2.0.0
+            BIFROST_VERSION=${{ env.BIFROST_VERSION }}
             VCS_REF=${{ steps.image.outputs.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}

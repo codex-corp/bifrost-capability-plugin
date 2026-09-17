@@ -28,10 +28,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          [[ "$RELEASE_TAG" =~ ^bifrost-v2\.0\.0-r[1-9][0-9]*$ ]] || {
+          [[ "$RELEASE_TAG" =~ ^bifrost-v[0-9]+\.[0-9]+\.[0-9]+-r[1-9][0-9]*$ ]] || {
             echo "Unsupported release tag: $RELEASE_TAG" >&2
             exit 1
           }
+          bifrost_version="${RELEASE_TAG#bifrost-}"
+          bifrost_version="${bifrost_version%-r*}"
+          echo "BIFROST_VERSION=$bifrost_version" >> "$GITHUB_ENV"
 
           # Resolve the commit behind the release tag, including annotated tags,
           # so OCI provenance identifies the source release rather than the
@@ -45,8 +48,8 @@ jobs:
           gh release download "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --dir "$release_dir" \
-            --pattern "agent-capability-router-bifrost-v2.0.0-linux-amd64-glibc.so" \
-            --pattern "bifrost-http-bifrost-v2.0.0-linux-amd64-glibc" \
+            --pattern "agent-capability-router-bifrost-${BIFROST_VERSION}-linux-amd64-glibc.so" \
+            --pattern "bifrost-http-bifrost-${BIFROST_VERSION}-linux-amd64-glibc" \
             --pattern "bifrost-capability-plugin-${RELEASE_TAG}-linux-amd64-glibc.tar.gz" \
             --pattern SHA256SUMS
           (cd "$release_dir" && sha256sum -c SHA256SUMS)
@@ -65,7 +68,7 @@ jobs:
             gh release list --repo "$GITHUB_REPOSITORY" --limit 100 \
               --json tagName,isDraft,isPrerelease \
               --jq '.[] | select(.isDraft == false and .isPrerelease == false) | .tagName' |
-              grep -E '^bifrost-v2\.0\.0-r[1-9][0-9]*$' |
+              grep -E '^bifrost-v[0-9]+\.[0-9]+\.[0-9]+-r[1-9][0-9]*$' |
               sort -V |
               tail -n 1
           )"
@@ -75,7 +78,7 @@ jobs:
             echo 'tags<<EOF'
             echo "$IMAGE_NAME:$RELEASE_TAG"
             if [[ "$RELEASE_TAG" == "$latest_tag" ]]; then
-              echo "$IMAGE_NAME:bifrost-v2.0.0"
+              echo "$IMAGE_NAME:$BIFROST_VERSION"
               echo "$IMAGE_NAME:latest"
             else
               echo "Keeping mutable aliases on newer release $latest_tag" >&2
@@ -103,7 +106,7 @@ jobs:
           tags: ${{ steps.release.outputs.tags }}
           build-args: |
             RELEASE_TAG=${{ env.RELEASE_TAG }}
-            BIFROST_VERSION=v2.0.0
+            BIFROST_VERSION=${{ env.BIFROST_VERSION }}
             VCS_REF=${{ steps.release.outputs.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
