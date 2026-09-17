@@ -5,12 +5,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/matched"
 RELEASE_DIR="$ROOT_DIR/.build/release"
 RELEASE_TAG="${RELEASE_TAG:-bifrost-v2.0.0-r1}"
+BIFROST_VERSION="${BIFROST_VERSION:-${RELEASE_TAG#bifrost-}}"
+BIFROST_VERSION="${BIFROST_VERSION%-r*}"
 PLATFORM="linux-amd64-glibc"
-PLUGIN_ASSET="agent-capability-router-bifrost-v2.0.0-$PLATFORM.so"
-HOST_ASSET="bifrost-http-bifrost-v2.0.0-$PLATFORM"
+PLUGIN_ASSET="agent-capability-router-bifrost-${BIFROST_VERSION}-$PLATFORM.so"
+HOST_ASSET="bifrost-http-bifrost-${BIFROST_VERSION}-$PLATFORM"
 BUNDLE="bifrost-capability-plugin-$RELEASE_TAG-$PLATFORM.tar.gz"
 
-[[ "$RELEASE_TAG" =~ ^bifrost-v2\.0\.0-r[1-9][0-9]*$ ]] || {
+[[ "$RELEASE_TAG" =~ ^bifrost-v[0-9]+\.[0-9]+\.[0-9]+-r[1-9][0-9]*$ ]] || {
   echo "Unsupported release tag: $RELEASE_TAG" >&2
   exit 1
 }
@@ -26,6 +28,8 @@ required=(
   abi-probe.buildinfo
   compatible-runtime.json
   isolated-test-result.json
+  bifrost.version
+  source.revision
   SHA256SUMS
 )
 for file in "${required[@]}"; do

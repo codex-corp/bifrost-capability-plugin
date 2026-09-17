@@ -104,15 +104,16 @@ All other traffic bypasses the plugin. Deterministic aliases such as `agent-main
 The published plugin and Bifrost executable are one tested ABI pair. Bifrost's
 standard static executable cannot load Go plugins, and a `.so` built with a
 different source graph, Go toolchain, architecture, libc, or build flags is not
-compatible even when both products report `v2.0.0`.
+compatible even when both products report the same version.
 
-The first release supports Linux AMD64 with glibc only. Do not install its `.so`
+Published releases support Linux AMD64 with glibc only. Do not install their `.so`
 into Bifrost's stock static executable, Alpine/musl, ARM64, or an independently
 built dynamic host.
 
 ## Install the release
 
-Download all four assets from release `bifrost-v2.0.0-r1` and verify them:
+Download all four assets from the matching release tag and verify them. The
+following uses the first release as an example:
 
 ```bash
 base='https://github.com/codex-corp/bifrost-capability-plugin/releases/download/bifrost-v2.0.0-r1'
@@ -260,6 +261,20 @@ Use `--virtual-key-id` for scripted/non-interactive setup.
 - capability-router plugin
 
 `test-candidate` starts the matched host on `127.0.0.1:11020`, loads all plugins, checks the UI and version, and sends a shadow request to a local fake OpenAI upstream. It never contacts a real model provider.
+
+## Publish a release
+
+Release tags are version-driven. Push a tag in this form:
+
+```bash
+git tag -a bifrost-v2.2.0-r1 -m "Bifrost v2.2.0 plugin release"
+git push origin bifrost-v2.2.0-r1
+```
+
+GitHub Actions checks out the matching `transports/v2.2.0` source, builds the
+host and native plugin as one ABI pair, runs the isolated candidate test, and
+publishes the plugin, matched host, complete bundle, and `SHA256SUMS`. Existing
+releases are immutable; a new revision uses another `-rN` tag.
 
 ## Install
 

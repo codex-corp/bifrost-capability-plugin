@@ -3,18 +3,25 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE_DIR="${BIFROST_SOURCE_DIR:-/tmp/bifrost-v2.0.0}"
+BIFROST_VERSION="${BIFROST_VERSION:-$(basename "$SOURCE_DIR" | sed -n 's/^bifrost-\(v[0-9][0-9.]*\)$/\1/p')}"
 OUTPUT_DIR="$ROOT_DIR/.build/matched"
-SNAPSHOT_DIR="$ROOT_DIR/.build/source-v2.0.0"
+SNAPSHOT_DIR="$ROOT_DIR/.build/source-${BIFROST_VERSION:-unknown}"
 CACHE_DIR="$ROOT_DIR/.cache/matched"
 GO_IMAGE="golang:1.27.0"
 NODE_IMAGE="node:22.12.0"
-EXPECTED_REVISION="e4a30d6041c0446603aea615bc5da340dac001b1"
+EXPECTED_REVISION="${BIFROST_SOURCE_REVISION:-}"
 
-[[ -d "$SOURCE_DIR/.git" ]] || { echo "Missing Bifrost checkout: $SOURCE_DIR" >&2; exit 1; }
-[[ "$(git -C "$SOURCE_DIR" rev-parse HEAD)" == "$EXPECTED_REVISION" ]] || {
-  echo "Bifrost checkout is not revision $EXPECTED_REVISION" >&2
+[[ "$BIFROST_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+  echo "Set BIFROST_VERSION to vMAJOR.MINOR.PATCH." >&2
   exit 1
 }
+
+[[ -d "$SOURCE_DIR/.git" ]] || { echo "Missing Bifrost checkout: $SOURCE_DIR" >&2; exit 1; }
+SOURCE_REVISION="$(git -C "$SOURCE_DIR" rev-parse HEAD)"
+if [[ -n "$EXPECTED_REVISION" && "$SOURCE_REVISION" != "$EXPECTED_REVISION" ]]; then
+  echo "Bifrost checkout is not revision $EXPECTED_REVISION (found $SOURCE_REVISION)" >&2
+  exit 1
+fi
 
 mkdir -p "$OUTPUT_DIR" "$CACHE_DIR/build" "$CACHE_DIR/mod"
 rm -f "$OUTPUT_DIR/compatible-runtime.json" "$OUTPUT_DIR/isolated-test-result.json"
@@ -36,13 +43,13 @@ cp "$ROOT_DIR/abi-probe/main.go" "$WORK_DIR/abi-probe/main.go"
 cp "$SNAPSHOT_DIR/examples/plugins/llm-only/main.go" "$WORK_DIR/official-llm-only/main.go"
 
 docker run --rm --user "$(id -u):$(id -g)" \
-  -e GOCACHE=/cache/build -e GOMODCACHE=/cache/mod \
+  -e GOCACHE=/cache/build -e GOMODCACHE=/cache/mod -e BIFROST_VERSION="$BIFROST_VERSION" \
   -v "$SNAPSHOT_DIR:/src" -v "$OUTPUT_DIR:/out" -v "$CACHE_DIR:/cache" \
   -w /src/transports "$GO_IMAGE" sh -ec '
     BUILD_TAGS=netgo,osusergo,sqlite_static
     go test -tags="$BUILD_TAGS" /src/transports/.agent-router-build/router
     CGO_ENABLED=1 go build -tags="$BUILD_TAGS" -trimpath \
-      -ldflags="-w -s -X main.Version=v2.0.0" \
+      -ldflags="-w -s -X main.Version=$BIFROST_VERSION" \
       -o /out/bifrost-http ./bifrost-http
     CGO_ENABLED=1 go build -tags="$BUILD_TAGS" -trimpath -buildmode=plugin -o /out/official-llm-only.so ./.agent-router-build/official-llm-only
     CGO_ENABLED=1 go build -tags="$BUILD_TAGS" -trimpath -buildmode=plugin -o /out/abi-probe.so ./.agent-router-build/abi-probe
@@ -57,4 +64,6 @@ docker run --rm --user "$(id -u):$(id -g)" \
   cd "$OUTPUT_DIR"
   sha256sum bifrost-http *.so >SHA256SUMS
 )
+printf '%s\n' "$BIFROST_VERSION" > "$OUTPUT_DIR/bifrost.version"
+printf '%s\n' "$SOURCE_REVISION" > "$OUTPUT_DIR/source.revision"
 echo "Matched candidate built under: $OUTPUT_DIR"

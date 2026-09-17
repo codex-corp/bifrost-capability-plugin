@@ -13,7 +13,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-BUILD = ROOT / ".build" / "matched"
+BUILD = pathlib.Path(os.environ.get("BIFROST_BUILD_DIR", str(ROOT / ".build" / "matched")))
+EXPECTED_VERSION = os.environ.get("BIFROST_EXPECTED_VERSION", "v2.0.0")
 PORT = int(os.environ.get("BIFROST_CANDIDATE_PORT", "11020"))
 UPSTREAM_PORT = PORT + 1
 
@@ -200,7 +201,7 @@ def main() -> None:
             raise SystemExit(f"Expected one HTTP plugin download; observed {ShadowUpstream.plugin_downloads}")
         if root_status != 200 or "<!doctype html>" not in root_response.lower():
             raise SystemExit(f"Embedded UI check failed with {root_status}: {root_response[:200]}")
-        if version_status != 200 or json.loads(version_response) != "v2.0.0":
+        if version_status != 200 or json.loads(version_response) != EXPECTED_VERSION:
             raise SystemExit(f"Version check failed with {version_status}: {version_response[:200]}")
 
         result_path.write_text(json.dumps(result, indent=2), encoding="utf-8")

@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - bifrost-v2.0.0-r*
+      - bifrost-v*
 
 permissions:
   contents: write
@@ -17,15 +17,22 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           fetch-depth: 0
+      - name: Resolve release version
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF_NAME" =~ ^bifrost-v[0-9]+\.[0-9]+\.[0-9]+-r[1-9][0-9]*$ ]]
+          release_version="${GITHUB_REF_NAME#bifrost-}"
+          echo "BIFROST_VERSION=${release_version%-r*}" >> "$GITHUB_ENV"
       - name: Check out exact Bifrost source
         run: |
-          git clone --filter=blob:none https://github.com/maximhq/bifrost.git /tmp/bifrost-v2.0.0
-          git -C /tmp/bifrost-v2.0.0 checkout e4a30d6041c0446603aea615bc5da340dac001b1
+          git clone --filter=blob:none --branch "transports/$BIFROST_VERSION" https://github.com/maximhq/bifrost.git "/tmp/bifrost-$BIFROST_VERSION"
+          echo "BIFROST_SOURCE_DIR=/tmp/bifrost-$BIFROST_VERSION" >> "$GITHUB_ENV"
+          echo "BIFROST_SOURCE_REVISION=$(git -C "/tmp/bifrost-$BIFROST_VERSION" rev-parse HEAD)" >> "$GITHUB_ENV"
       - name: Build and test ABI-matched release
         run: |
           set -euo pipefail
-          scripts/build_matched.sh
-          python3 scripts/test_candidate.py
+          BIFROST_VERSION="$BIFROST_VERSION" BIFROST_SOURCE_DIR="$BIFROST_SOURCE_DIR" BIFROST_SOURCE_REVISION="$BIFROST_SOURCE_REVISION" scripts/build_matched.sh
+          BIFROST_EXPECTED_VERSION="$BIFROST_VERSION" python3 scripts/test_candidate.py
           RELEASE_TAG="$GITHUB_REF_NAME" scripts/package_release.sh
       - name: Publish release assets
         env:
@@ -38,7 +45,7 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
               --verify-tag \
-              --title "Bifrost Capability Router for Bifrost v2.0.0" \
+              --title "Bifrost Capability Router for Bifrost $BIFROST_VERSION" \
               --generate-notes
           fi
       - name: Verify published downloads
@@ -50,7 +57,7 @@ jobs:
           trap 'rm -rf "$verify_dir"' EXIT
           gh release download "$GITHUB_REF_NAME" --dir "$verify_dir"
           (cd "$verify_dir" && sha256sum -c SHA256SUMS)
-          asset="agent-capability-router-bifrost-v2.0.0-linux-amd64-glibc.so"
+          asset="agent-capability-router-bifrost-${BIFROST_VERSION}-linux-amd64-glibc.so"
           curl -fsSL "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${asset}" -o "$verify_dir/http-download.so"
           cmp "$verify_dir/$asset" "$verify_dir/http-download.so"
       - name: Resolve GHCR image tags and provenance
