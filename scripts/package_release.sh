@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/matched"
 RELEASE_DIR="$ROOT_DIR/.build/release"
-RELEASE_TAG="${RELEASE_TAG:-bifrost-v2.0.0-r1}"
+RELEASE_TAG="${RELEASE_TAG:-bifrost-v2.2.0-r2}"
 BIFROST_VERSION="${BIFROST_VERSION:-${RELEASE_TAG#bifrost-}}"
 BIFROST_VERSION="${BIFROST_VERSION%-r*}"
 PLATFORM="linux-amd64-glibc"

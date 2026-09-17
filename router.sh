@@ -9,12 +9,12 @@ PLUGIN_NAME="agent-capability-router"
 PLUGIN_SO="$ROOT_DIR/.build/matched/$PLUGIN_NAME.so"
 MATCHED_HOST="$ROOT_DIR/.build/matched/bifrost-http"
 COMPATIBILITY_MARKER="$ROOT_DIR/.build/matched/compatible-runtime.json"
-RUNTIME_BIN="${BIFROST_RUNTIME_BIN:-$HOME/.local/lib/bifrost/v2.0.0-matched/bifrost-http}"
+RUNTIME_BIN="${BIFROST_RUNTIME_BIN:-$HOME/.local/lib/bifrost/v2.2.0-matched/bifrost-http}"
 INSTALLED_SO="$PLUGIN_DIR/$PLUGIN_NAME.so"
 BACKUP_ROOT="$ROOT_DIR/backups"
 INSTALL_CONFIG="$ROOT_DIR/.local/install.json"
 GO_IMAGE="golang:1.27.0"
-EXPECTED_TRANSPORT='"v2.0.0"'
+EXPECTED_TRANSPORT="${BIFROST_EXPECTED_TRANSPORT:-\"v2.2.0\"}"
 
 api() {
   local method="$1" path="$2"
@@ -44,7 +44,7 @@ status() {
   require_commands
   echo "Bifrost health: $(api GET /health | jq -r '.status')"
   echo "Bifrost version: $(api GET /api/version | jq -r '.')"
-  echo "Runtime target: linux/amd64, Go 1.27.0, core v1.8.3, framework v1.6.0"
+  echo "Runtime target: linux/amd64, Go 1.27.0, core v1.9.0, framework v1.7.0"
   if [[ -f "$COMPATIBILITY_MARKER" && -f "$RUNTIME_BIN" ]]; then
     local expected_host current_host
     expected_host="$(jq -r '.host_sha256' "$COMPATIBILITY_MARKER")"
@@ -68,7 +68,7 @@ validate() {
   "$ROOT_DIR/install.sh" check
   jq -e . "$ROOT_DIR/config/plugin.json" "$ROOT_DIR/config/models.json" "$ROOT_DIR/config/lanes.json" "$ROOT_DIR/config/routing-rules.json" >/dev/null
   [[ "$(api GET /api/version)" == "$EXPECTED_TRANSPORT" ]] || {
-    echo "Expected Bifrost v2.0.0; found $(api GET /api/version)" >&2
+    echo "Expected Bifrost ${EXPECTED_TRANSPORT}; found $(api GET /api/version)" >&2
     exit 1
   }
   [[ "$(uname -s)/$(uname -m)" == "Linux/x86_64" ]] || {
@@ -76,7 +76,10 @@ validate() {
     exit 1
   }
   api GET /api/routing/complexity-analyzer-config | jq -e \
-    '.tier_boundaries.simple_medium != null and .tier_boundaries.medium_complex != null and .tier_boundaries.complex_reasoning != null' >/dev/null || {
+    '.tier_boundaries.simple_medium != null and
+     .tier_boundaries.medium_complex != null and
+     .semantic.provider != null and
+     .semantic.embedding_model != null' >/dev/null || {
     echo "Bifrost Complexity Router configuration is unavailable." >&2
     exit 1
   }

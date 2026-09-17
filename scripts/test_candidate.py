@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 BUILD = pathlib.Path(os.environ.get("BIFROST_BUILD_DIR", str(ROOT / ".build" / "matched")))
-EXPECTED_VERSION = os.environ.get("BIFROST_EXPECTED_VERSION", "v2.0.0")
+EXPECTED_VERSION = os.environ.get("BIFROST_EXPECTED_VERSION", "v2.2.0")
 PORT = int(os.environ.get("BIFROST_CANDIDATE_PORT", "11020"))
 UPSTREAM_PORT = PORT + 1
 

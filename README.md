@@ -99,6 +99,50 @@ agent-worker-auto -> agent-worker-{capability}
 
 All other traffic bypasses the plugin. Deterministic aliases such as `agent-main-max`, `agent-main-cheap`, and existing `codex-*` routes remain under Bifrost control.
 
+## Configure the Complexity Router
+
+The capability plugin supplies the `role` and `capability` signals. Bifrost's
+Complexity Router supplies `complexity_tier`; the Agent CR CEL rules combine
+both values. Enable the Complexity Router before enabling live Agent CR rules.
+
+For a Bedrock deployment, configure the Complexity Router in the Bifrost
+Dashboard (or its routing API) with an embedding model available to the same
+provider key. The current validated local setup is:
+
+```json
+{
+  "tier_boundaries": {
+    "simple_medium": 0.2,
+    "medium_complex": 0.4
+  },
+  "semantic": {
+    "provider": "bedrock",
+    "embedding_model": "cohere.embed-multilingual-v3",
+    "timeout": "1.5s",
+    "min_similarity": 0.6,
+    "message_history_count": 1,
+    "vector_store": "embedded",
+    "fallback": "none"
+  }
+}
+```
+
+Use the model identifier exposed by your own Bifrost installation; do not copy
+this example when that model is unavailable in your region. Saving a changed
+provider or embedding model re-embeds the reference phrases and invalidates
+the stored vectors. Verify the result with:
+
+```bash
+curl -fsS http://127.0.0.1:10020/api/routing/complexity-analyzer-config | jq .
+./router.sh validate
+```
+
+The plugin must be placed before built-in governance (`pre_builtin`, order `0`)
+so its capability metadata is present when the Complexity Router and CEL rules
+run. Configure the Virtual Key to permit the embedding provider plus every
+Agent CR target and fallback. `router.sh apply-rules` installs only the nine
+additive Agent CR rules; it does not modify existing `OC v2` rules.
+
 ## Release compatibility
 
 The published plugin and Bifrost executable are one tested ABI pair. Bifrost's
@@ -113,17 +157,17 @@ built dynamic host.
 ## Install the release
 
 Download all four assets from the matching release tag and verify them. The
-following uses the first release as an example:
+following uses the current revision release as an example:
 
 ```bash
-base='https://github.com/codex-corp/bifrost-capability-plugin/releases/download/bifrost-v2.0.0-r1'
-curl -fLO "$base/agent-capability-router-bifrost-v2.0.0-linux-amd64-glibc.so"
-curl -fLO "$base/bifrost-http-bifrost-v2.0.0-linux-amd64-glibc"
-curl -fLO "$base/bifrost-capability-plugin-bifrost-v2.0.0-r1-linux-amd64-glibc.tar.gz"
+base='https://github.com/codex-corp/bifrost-capability-plugin/releases/download/bifrost-v2.2.0-r2'
+curl -fLO "$base/agent-capability-router-bifrost-v2.2.0-linux-amd64-glibc.so"
+curl -fLO "$base/bifrost-http-bifrost-v2.2.0-linux-amd64-glibc"
+curl -fLO "$base/bifrost-capability-plugin-bifrost-v2.2.0-r2-linux-amd64-glibc.tar.gz"
 curl -fLO "$base/SHA256SUMS"
 sha256sum -c SHA256SUMS
-tar -xzf bifrost-capability-plugin-bifrost-v2.0.0-r1-linux-amd64-glibc.tar.gz
-cd bifrost-capability-plugin-bifrost-v2.0.0-r1-linux-amd64-glibc
+tar -xzf bifrost-capability-plugin-bifrost-v2.2.0-r2-linux-amd64-glibc.tar.gz
+cd bifrost-capability-plugin-bifrost-v2.2.0-r2-linux-amd64-glibc
 ```
 
 Install the matched host at a versioned path, point your Bifrost service at it,
@@ -131,9 +175,9 @@ and start it with the existing app directory. Keep the previous executable and
 database backup for rollback.
 
 ```bash
-install -d "$HOME/.local/lib/bifrost/v2.0.0-matched"
+install -d "$HOME/.local/lib/bifrost/v2.2.0-matched"
 install -m 0755 .build/matched/bifrost-http \
-  "$HOME/.local/lib/bifrost/v2.0.0-matched/bifrost-http"
+  "$HOME/.local/lib/bifrost/v2.2.0-matched/bifrost-http"
 curl -fsS http://127.0.0.1:10020/health
 curl -fsS http://127.0.0.1:10020/api/version
 ```
@@ -143,7 +187,7 @@ New Plugin** and enter:
 
 ```text
 Name: agent-capability-router
-Path/URL: https://github.com/codex-corp/bifrost-capability-plugin/releases/download/bifrost-v2.0.0-r1/agent-capability-router-bifrost-v2.0.0-linux-amd64-glibc.so
+Path/URL: https://github.com/codex-corp/bifrost-capability-plugin/releases/download/bifrost-v2.2.0-r2/agent-capability-router-bifrost-v2.2.0-linux-amd64-glibc.so
 ```
 
 Enable configuration and paste the plugin-specific object:
@@ -188,9 +232,9 @@ matches are correct, edit the plugin in the Dashboard and change
 - Linux `amd64`
 - Docker
 - `curl`, `jq`, Python 3, `sha256sum`, and `flock`
-- Bifrost v2.0.0 source at revision `e4a30d6041c0446603aea615bc5da340dac001b1`
-- Go 1.27.0, Bifrost core v1.8.3, and framework v1.6.0
-- A running Bifrost v2.0.0 gateway for validation and installation
+- Bifrost v2.2.0 source at the matching `transports/v2.2.0` revision
+- Go 1.27.0, Bifrost core v1.9.0, and framework v1.7.0
+- A running Bifrost v2.2.0 gateway for validation and installation
 - Bifrost Complexity Router configured and available
 - An active Virtual Key that permits Bedrock and every configured model
 - Dashboard administrator authentication when creating or changing a custom plugin path
@@ -202,9 +246,8 @@ Go plugins require the host and plugin to share the exact source graph, Go toolc
 Clone the matching Bifrost source:
 
 ```bash
-git clone https://github.com/maximhq/bifrost.git /tmp/bifrost-v2.0.0
-cd /tmp/bifrost-v2.0.0
-git checkout e4a30d6041c0446603aea615bc5da340dac001b1
+git clone --branch transports/v2.2.0 https://github.com/maximhq/bifrost.git /tmp/bifrost-v2.2.0
+cd /tmp/bifrost-v2.2.0
 ```
 
 Clone this repository and configure the deployment templates:
@@ -281,15 +324,15 @@ releases are immutable; a new revision uses another `-rN` tag.
 First deploy the matched Bifrost executable at a stable path and configure your service to use it. Keep the original service definition and executable as rollback artifacts.
 
 ```bash
-install -d "$HOME/.local/lib/bifrost/v2.0.0-matched"
+install -d "$HOME/.local/lib/bifrost/v2.2.0-matched"
 install -m 0755 .build/matched/bifrost-http \
-  "$HOME/.local/lib/bifrost/v2.0.0-matched/bifrost-http"
+  "$HOME/.local/lib/bifrost/v2.2.0-matched/bifrost-http"
 ```
 
 Start the matched host with the same address and app directory as the existing gateway:
 
 ```text
-~/.local/lib/bifrost/v2.0.0-matched/bifrost-http \
+~/.local/lib/bifrost/v2.2.0-matched/bifrost-http \
   -host 127.0.0.1 \
   -port 10020 \
   -app-dir ~/.config/bifrost
@@ -377,7 +420,7 @@ Host and plugin must move together:
 ```
 
 When upgrading from Bifrost v1.x, back up `config.json`, `config.db*`, and
-`logs.db*` before first starting v2. Bifrost v2.0.0 includes non-reversible
+`logs.db*` before first starting v2. Bifrost v2 includes non-reversible
 storage migrations; after they run, restore the database backup as well as the
 old executable if a downgrade is required.
 
@@ -386,7 +429,7 @@ Then:
 1. Stop Bifrost and take the database and service-definition backup.
 2. Install the newly matched host at a versioned path.
 3. Point the service at that host and restart Bifrost.
-4. Verify health, UI, and `v2.0.0` before continuing.
+4. Verify health, UI, and `v2.2.0` before continuing.
 5. Run `./router.sh validate`, then `./router.sh apply`.
 6. Verify all nine `Agent CR` rules and test representative main and worker requests.
 

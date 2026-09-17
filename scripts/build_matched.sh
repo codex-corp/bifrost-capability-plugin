@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SOURCE_DIR="${BIFROST_SOURCE_DIR:-/tmp/bifrost-v2.0.0}"
+SOURCE_DIR="${BIFROST_SOURCE_DIR:-/tmp/bifrost-v2.2.0}"
 BIFROST_VERSION="${BIFROST_VERSION:-$(basename "$SOURCE_DIR" | sed -n 's/^bifrost-\(v[0-9][0-9.]*\)$/\1/p')}"
 OUTPUT_DIR="$ROOT_DIR/.build/matched"
 SNAPSHOT_DIR="$ROOT_DIR/.build/source-${BIFROST_VERSION:-unknown}"
