@@ -18,6 +18,7 @@ type Config struct {
 	ShadowMode          bool                `json:"shadow_mode"`
 	ConfidenceThreshold float64             `json:"confidence_threshold"`
 	HistoryMessages     int                 `json:"history_messages"`
+	HugeTokenThreshold  int                 `json:"huge_token_threshold"`
 	Aliases             AliasConfig         `json:"aliases"`
 	ActiveRoles         map[string]bool     `json:"active_roles"`
 	Keywords            map[string][]string `json:"keywords"`
@@ -28,6 +29,7 @@ func defaultConfig() Config {
 		ShadowMode:          true,
 		ConfidenceThreshold: 0.70,
 		HistoryMessages:     8,
+		HugeTokenThreshold:  150000,
 		Aliases: AliasConfig{
 			Main:   "agent-main-auto",
 			Worker: "agent-worker-auto",
@@ -65,6 +67,9 @@ func (c Config) validate() error {
 	}
 	if c.HistoryMessages < 1 || c.HistoryMessages > 32 {
 		return fmt.Errorf("history_messages must be between 1 and 32")
+	}
+	if c.HugeTokenThreshold < 1 {
+		return fmt.Errorf("huge_token_threshold must be at least 1")
 	}
 	if c.Aliases.Main == "" || c.Aliases.Worker == "" || c.Aliases.Max == "" || c.Aliases.Cheap == "" {
 		return fmt.Errorf("all aliases are required")

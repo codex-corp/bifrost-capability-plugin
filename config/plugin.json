@@ -7,6 +7,7 @@
     "shadow_mode": true,
     "confidence_threshold": 0.7,
     "history_messages": 8,
+    "huge_token_threshold": 150000,
     "active_roles": {
       "main": true,
       "worker": true

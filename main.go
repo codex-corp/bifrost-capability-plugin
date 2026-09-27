@@ -45,16 +45,17 @@ func PreRequestHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) er
 		return nil
 	}
 
-	classification := classify(extractAgentSignals(req, cfg.HistoryMessages), cfg)
+	lane, scope, estimatedInputTokens, classification := laneForRequest(role, req, cfg)
 	capability := classification.Capability
-	if classification.Confidence < cfg.ConfidenceThreshold {
-		capability = CapabilityGeneral
+	if capability == "" {
+		capability = "none"
 	}
-	lane := "agent-" + role + "-" + capability
 	message := fmt.Sprintf(
-		"requested=%s role=%s capability=%s confidence=%.2f lane=%s shadow=%t signals=%s",
+		"requested=%s role=%s scope=%s estimated_input_tokens=%d capability=%s confidence=%.2f lane=%s shadow=%t signals=%s",
 		requestedModel,
 		role,
+		scope,
+		estimatedInputTokens,
 		capability,
 		classification.Confidence,
 		lane,
@@ -69,6 +70,28 @@ func PreRequestHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) er
 	req.SetModel(lane)
 	schemas.AppendToContextList(ctx, schemas.BifrostContextKeyRoutingEnginesUsed, schemas.RoutingEngineRoutingRule)
 	return nil
+}
+
+func laneForRequest(role string, req *schemas.BifrostRequest, cfg Config) (string, string, int, Classification) {
+	context := extractRequestContext(req)
+	if context.EstimatedInputTokens >= cfg.HugeTokenThreshold {
+		return "agent-" + role + "-huge", "huge", context.EstimatedInputTokens, Classification{
+			Signals: []string{"estimated-input-threshold"},
+		}
+	}
+	if isLargeScopeTask(context.LatestUserTask) {
+		return "agent-" + role + "-large", "large", context.EstimatedInputTokens, Classification{
+			Signals: []string{"latest-user-task-repository-wide"},
+		}
+	}
+
+	classification := classify(extractAgentSignals(req, cfg.HistoryMessages), cfg)
+	capability := classification.Capability
+	if classification.Confidence < cfg.ConfidenceThreshold {
+		capability = CapabilityGeneral
+	}
+	classification.Capability = capability
+	return "agent-" + role + "-" + capability, "capability", context.EstimatedInputTokens, classification
 }
 
 func roleForModel(model string, cfg Config) (string, bool) {

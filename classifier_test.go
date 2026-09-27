@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/maximhq/bifrost/core/schemas"
+)
 
 func TestCapabilityClassification(t *testing.T) {
 	cfg := defaultConfig()
@@ -81,4 +86,113 @@ func TestRoleAndBypassRules(t *testing.T) {
 			t.Errorf("model=%q got (%q,%t), want (%q,%t)", test.model, role, managed, test.role, test.managed)
 		}
 	}
+}
+
+func TestContextScopeLanePrecedence(t *testing.T) {
+	cfg := defaultConfig()
+	tests := []struct {
+		name     string
+		role     string
+		messages []schemas.ChatMessage
+		want     string
+	}{
+		{
+			name:     "normal worker implementation keeps capability lane",
+			role:     "worker",
+			messages: []schemas.ChatMessage{chatMessage(schemas.ChatMessageRoleUser, "Implement this focused function.")},
+			want:     "agent-worker-implement",
+		},
+		{
+			name:     "repo wide worker implementation becomes large",
+			role:     "worker",
+			messages: []schemas.ChatMessage{chatMessage(schemas.ChatMessageRoleUser, "Implement this migration across the entire repository.")},
+			want:     "agent-worker-large",
+		},
+		{
+			name: "latest user task remains anchor outside capability history",
+			role: "worker",
+			messages: append(
+				[]schemas.ChatMessage{chatMessage(schemas.ChatMessageRoleUser, "Audit the repository and migrate all usages.")},
+				repeatedChatMessages(schemas.ChatMessageRoleAssistant, "tool loop progress", cfg.HistoryMessages+2)...,
+			),
+			want: "agent-worker-large",
+		},
+		{
+			name: "new focused user task replaces old repo wide task",
+			role: "worker",
+			messages: []schemas.ChatMessage{
+				chatMessage(schemas.ChatMessageRoleUser, "Refactor the whole project."),
+				chatMessage(schemas.ChatMessageRoleAssistant, "The repository-wide task is complete."),
+				chatMessage(schemas.ChatMessageRoleUser, "Implement this focused function."),
+			},
+			want: "agent-worker-implement",
+		},
+		{
+			name: "assistant and tool mentions do not create large scope",
+			role: "worker",
+			messages: []schemas.ChatMessage{
+				chatMessage(schemas.ChatMessageRoleUser, "Implement this focused function."),
+				chatMessage(schemas.ChatMessageRoleAssistant, "The phrase whole codebase is only incidental."),
+				chatMessage(schemas.ChatMessageRoleTool, "Checked all files successfully."),
+			},
+			want: "agent-worker-tool-loop",
+		},
+		{
+			name:     "huge worker input wins over large scope",
+			role:     "worker",
+			messages: []schemas.ChatMessage{chatMessage(schemas.ChatMessageRoleUser, "Refactor the whole project. "+strings.Repeat("x", cfg.HugeTokenThreshold*estimatedBytesPerToken))},
+			want:     "agent-worker-huge",
+		},
+		{
+			name:     "main large uses main lane",
+			role:     "main",
+			messages: []schemas.ChatMessage{chatMessage(schemas.ChatMessageRoleUser, "Audit the repository for authorization flaws.")},
+			want:     "agent-main-large",
+		},
+		{
+			name:     "main huge uses main lane",
+			role:     "main",
+			messages: []schemas.ChatMessage{chatMessage(schemas.ChatMessageRoleUser, strings.Repeat("x", cfg.HugeTokenThreshold*estimatedBytesPerToken))},
+			want:     "agent-main-huge",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			req := &schemas.BifrostRequest{ChatRequest: &schemas.BifrostChatRequest{
+				Model: "agent-" + test.role + "-auto",
+				Input: test.messages,
+			}}
+			lane, _, _, _ := laneForRequest(test.role, req, cfg)
+			if lane != test.want {
+				t.Fatalf("lane=%q, want %q", lane, test.want)
+			}
+		})
+	}
+}
+
+func TestCustomHugeTokenThreshold(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.HugeTokenThreshold = 4
+	req := &schemas.BifrostRequest{ChatRequest: &schemas.BifrostChatRequest{
+		Model: "agent-worker-auto",
+		Input: []schemas.ChatMessage{chatMessage(schemas.ChatMessageRoleUser, "A focused task")},
+	}}
+	lane, _, estimated, _ := laneForRequest("worker", req, cfg)
+	if lane != "agent-worker-huge" || estimated < cfg.HugeTokenThreshold {
+		t.Fatalf("lane=%q estimated=%d, want huge at threshold %d", lane, estimated, cfg.HugeTokenThreshold)
+	}
+}
+
+func chatMessage(role schemas.ChatMessageRole, text string) schemas.ChatMessage {
+	content := schemas.ChatMessageContent{ContentStr: schemas.Ptr(text)}
+	return schemas.ChatMessage{Role: role, Content: &content}
+}
+
+func repeatedChatMessages(role schemas.ChatMessageRole, text string, count int) []schemas.ChatMessage {
+	messages := make([]schemas.ChatMessage, count)
+	for i := range messages {
+		messages[i] = chatMessage(role, text)
+	}
+	return messages
 }

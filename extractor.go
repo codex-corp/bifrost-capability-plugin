@@ -10,6 +10,71 @@ import (
 
 const maxExtractedStringBytes = 4096
 
+const estimatedBytesPerToken = 4
+
+type RequestContext struct {
+	EstimatedInputTokens int
+	LatestUserTask       string
+}
+
+func extractRequestContext(req *schemas.BifrostRequest) RequestContext {
+	if req == nil {
+		return RequestContext{}
+	}
+
+	var payload any
+	context := RequestContext{}
+	switch {
+	case req.ChatRequest != nil:
+		var extra map[string]any
+		if req.ChatRequest.Params != nil {
+			extra = req.ChatRequest.Params.ExtraParams
+		}
+		payload = struct {
+			Input  []schemas.ChatMessage   `json:"input"`
+			Params *schemas.ChatParameters `json:"params,omitempty"`
+			Extra  map[string]any          `json:"extra_params,omitempty"`
+		}{Input: req.ChatRequest.Input, Params: req.ChatRequest.Params, Extra: extra}
+		for i := len(req.ChatRequest.Input) - 1; i >= 0; i-- {
+			message := req.ChatRequest.Input[i]
+			if message.Role != schemas.ChatMessageRoleUser || message.Content == nil {
+				continue
+			}
+			text := strings.TrimSpace(fullTextFromValue(message.Content))
+			if text != "" {
+				context.LatestUserTask = text
+				break
+			}
+		}
+	case req.ResponsesRequest != nil:
+		var extra map[string]any
+		if req.ResponsesRequest.Params != nil {
+			extra = req.ResponsesRequest.Params.ExtraParams
+		}
+		payload = struct {
+			Input  []schemas.ResponsesMessage   `json:"input"`
+			Params *schemas.ResponsesParameters `json:"params,omitempty"`
+			Extra  map[string]any               `json:"extra_params,omitempty"`
+		}{Input: req.ResponsesRequest.Input, Params: req.ResponsesRequest.Params, Extra: extra}
+		for i := len(req.ResponsesRequest.Input) - 1; i >= 0; i-- {
+			message := req.ResponsesRequest.Input[i]
+			if message.Role == nil || *message.Role != schemas.ResponsesInputMessageRoleUser || message.Content == nil {
+				continue
+			}
+			text := strings.TrimSpace(fullTextFromValue(message.Content))
+			if text != "" {
+				context.LatestUserTask = text
+				break
+			}
+		}
+	default:
+		return context
+	}
+
+	context.EstimatedInputTokens = estimateInputTokens(payload)
+	return context
+}
+
 func extractAgentSignals(req *schemas.BifrostRequest, historyMessages int) SignalSnapshot {
 	if req == nil {
 		return SignalSnapshot{}
@@ -88,6 +153,14 @@ func looksLikeFailure(text string) bool {
 }
 
 func textFromValue(value any) string {
+	return textFromValueWithLimit(value, maxExtractedStringBytes)
+}
+
+func fullTextFromValue(value any) string {
+	return textFromValueWithLimit(value, 0)
+}
+
+func textFromValueWithLimit(value any, maxStringBytes int) string {
 	b, err := json.Marshal(value)
 	if err != nil {
 		return ""
@@ -97,20 +170,20 @@ func textFromValue(value any) string {
 		return ""
 	}
 	parts := make([]string, 0, 8)
-	collectStrings(decoded, "", &parts)
+	collectStrings(decoded, "", maxStringBytes, &parts)
 	return strings.Join(parts, " ")
 }
 
-func collectStrings(value any, key string, parts *[]string) {
+func collectStrings(value any, key string, maxStringBytes int, parts *[]string) {
 	switch typed := value.(type) {
 	case string:
-		if typed == "" || len(typed) > maxExtractedStringBytes || isOpaqueField(key, typed) {
+		if typed == "" || (maxStringBytes > 0 && len(typed) > maxStringBytes) || isOpaqueField(key, typed) {
 			return
 		}
 		*parts = append(*parts, typed)
 	case []any:
 		for _, item := range typed {
-			collectStrings(item, key, parts)
+			collectStrings(item, key, maxStringBytes, parts)
 		}
 	case map[string]any:
 		keys := make([]string, 0, len(typed))
@@ -119,14 +192,69 @@ func collectStrings(value any, key string, parts *[]string) {
 		}
 		sort.Strings(keys)
 		for _, childKey := range keys {
-			collectStrings(typed[childKey], childKey, parts)
+			if isOpaqueKey(childKey) {
+				continue
+			}
+			collectStrings(typed[childKey], childKey, maxStringBytes, parts)
 		}
 	}
 }
 
+func estimateInputTokens(value any) int {
+	bytes := textByteCount(value)
+	return (bytes + estimatedBytesPerToken - 1) / estimatedBytesPerToken
+}
+
+func textByteCount(value any) int {
+	b, err := json.Marshal(value)
+	if err != nil {
+		return 0
+	}
+	var decoded any
+	if err := json.Unmarshal(b, &decoded); err != nil {
+		return 0
+	}
+	return countTextBytes(decoded, "")
+}
+
+func countTextBytes(value any, key string) int {
+	switch typed := value.(type) {
+	case string:
+		if typed == "" || isOpaqueField(key, typed) {
+			return 0
+		}
+		return len(typed)
+	case []any:
+		total := 0
+		for _, item := range typed {
+			total += countTextBytes(item, key)
+		}
+		return total
+	case map[string]any:
+		total := 0
+		for childKey, item := range typed {
+			if isOpaqueKey(childKey) {
+				continue
+			}
+			total += len(childKey) + countTextBytes(item, childKey)
+		}
+		return total
+	default:
+		return 0
+	}
+}
+
 func isOpaqueField(key, value string) bool {
-	lowerKey := strings.ToLower(key)
 	lowerValue := strings.ToLower(value)
-	return lowerKey == "file_data" || lowerKey == "image_url" || lowerKey == "data" ||
+	return isOpaqueKey(key) ||
 		strings.HasPrefix(lowerValue, "data:image/") || strings.HasPrefix(lowerValue, "data:application/")
+}
+
+func isOpaqueKey(key string) bool {
+	switch strings.ToLower(key) {
+	case "file_data", "image_url", "data":
+		return true
+	default:
+		return false
+	}
 }

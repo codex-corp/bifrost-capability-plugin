@@ -1,110 +1,360 @@
 [
-  {
-    "name": "Agent CR 000 main max",
-    "description": "Deterministic maximum-capability escape hatch.",
-    "enabled": true,
-    "chain_rule": false,
-    "cel_expression": "model == \"agent-main-max\"",
-    "targets": [{"provider": "bedrock", "model": "zai.glm-5", "weight": 1.0}],
-    "fallbacks": ["bedrock/moonshot.kimi-k2-thinking", "bedrock/minimax.minimax-m2.5"],
-    "scope": "virtual_key",
-    "scope_id": "INSTALL_REQUIRED",
-    "priority": 200
-  },
-  {
-    "name": "Agent CR 010 main cheap",
-    "description": "Deterministic inexpensive escape hatch.",
-    "enabled": true,
-    "chain_rule": false,
-    "cel_expression": "model == \"agent-main-cheap\"",
-    "targets": [{"provider": "bedrock", "model": "apac.amazon.nova-lite-v1:0", "weight": 1.0}],
-    "fallbacks": ["bedrock/qwen.qwen3-coder-30b-a3b-v1:0", "bedrock/minimax.minimax-m2.5"],
-    "scope": "virtual_key",
-    "scope_id": "INSTALL_REQUIRED",
-    "priority": 210
-  },
-  {
-    "name": "Agent CR 100 main hard decision",
-    "description": "Complex or reasoning-heavy main orchestration, debugging, and general decisions.",
-    "enabled": true,
-    "chain_rule": false,
-    "cel_expression": "(model == \"agent-main-orchestrate\" || model == \"agent-main-debug\" || model == \"agent-main-general\") && (complexity_tier == \"COMPLEX\" || complexity_tier == \"REASONING\")",
-    "targets": [{"provider": "bedrock", "model": "zai.glm-5", "weight": 1.0}],
-    "fallbacks": ["bedrock/moonshot.kimi-k2-thinking", "bedrock/minimax.minimax-m2.5"],
-    "scope": "virtual_key",
-    "scope_id": "INSTALL_REQUIRED",
-    "priority": 300
-  },
-  {
-    "name": "Agent CR 110 main normal agent",
-    "description": "Default main orchestration, debugging, implementation, and tool work.",
-    "enabled": true,
-    "chain_rule": false,
-    "cel_expression": "model == \"agent-main-orchestrate\" || model == \"agent-main-debug\" || model == \"agent-main-general\" || model == \"agent-main-implement\" || model == \"agent-main-tool-loop\"",
-    "targets": [{"provider": "bedrock", "model": "minimax.minimax-m2.5", "weight": 1.0}],
-    "fallbacks": ["bedrock/zai.glm-5", "bedrock/qwen.qwen3-coder-480b-a35b-v1:0"],
-    "scope": "virtual_key",
-    "scope_id": "INSTALL_REQUIRED",
-    "priority": 310
-  },
-  {
-    "name": "Agent CR 120 main hard explore",
-    "description": "Complex or reasoning-heavy main-agent exploration.",
-    "enabled": true,
-    "chain_rule": false,
-    "cel_expression": "model == \"agent-main-explore\" && (complexity_tier == \"COMPLEX\" || complexity_tier == \"REASONING\")",
-    "targets": [{"provider": "bedrock", "model": "minimax.minimax-m2.5", "weight": 1.0}],
-    "fallbacks": ["bedrock/zai.glm-5", "bedrock/qwen.qwen3-coder-480b-a35b-v1:0"],
-    "scope": "virtual_key",
-    "scope_id": "INSTALL_REQUIRED",
-    "priority": 320
-  },
-  {
-    "name": "Agent CR 130 main information",
-    "description": "Default main exploration and summarization, including unknown complexity.",
-    "enabled": true,
-    "chain_rule": false,
-    "cel_expression": "model == \"agent-main-explore\" || model == \"agent-main-summarize\"",
-    "targets": [{"provider": "bedrock", "model": "apac.amazon.nova-lite-v1:0", "weight": 1.0}],
-    "fallbacks": ["bedrock/qwen.qwen3-coder-30b-a3b-v1:0", "bedrock/minimax.minimax-m2.5"],
-    "scope": "virtual_key",
-    "scope_id": "INSTALL_REQUIRED",
-    "priority": 330
-  },
-  {
-    "name": "Agent CR 200 worker heavy",
-    "description": "Medium-or-harder worker coding, debugging, tool, orchestration, and general work.",
-    "enabled": true,
-    "chain_rule": false,
-    "cel_expression": "(model == \"agent-worker-orchestrate\" || model == \"agent-worker-implement\" || model == \"agent-worker-debug\" || model == \"agent-worker-tool-loop\" || model == \"agent-worker-general\") && (complexity_tier == \"MEDIUM\" || complexity_tier == \"COMPLEX\" || complexity_tier == \"REASONING\")",
-    "targets": [{"provider": "bedrock", "model": "qwen.qwen3-coder-480b-a35b-v1:0", "weight": 1.0}],
-    "fallbacks": ["bedrock/zai.glm-5", "bedrock/qwen.qwen3-coder-30b-a3b-v1:0"],
-    "scope": "virtual_key",
-    "scope_id": "INSTALL_REQUIRED",
-    "priority": 400
-  },
-  {
-    "name": "Agent CR 210 worker cheap information",
-    "description": "Simple worker exploration and summarization.",
-    "enabled": true,
-    "chain_rule": false,
-    "cel_expression": "(model == \"agent-worker-explore\" || model == \"agent-worker-summarize\") && complexity_tier == \"SIMPLE\"",
-    "targets": [{"provider": "bedrock", "model": "apac.amazon.nova-lite-v1:0", "weight": 1.0}],
-    "fallbacks": ["bedrock/qwen.qwen3-coder-30b-a3b-v1:0", "bedrock/minimax.minimax-m2.5"],
-    "scope": "virtual_key",
-    "scope_id": "INSTALL_REQUIRED",
-    "priority": 410
-  },
-  {
-    "name": "Agent CR 220 worker default",
-    "description": "All worker traffic not handled by a more specific worker rule.",
-    "enabled": true,
-    "chain_rule": false,
-    "cel_expression": "model == \"agent-worker-orchestrate\" || model == \"agent-worker-implement\" || model == \"agent-worker-debug\" || model == \"agent-worker-tool-loop\" || model == \"agent-worker-explore\" || model == \"agent-worker-summarize\" || model == \"agent-worker-general\"",
-    "targets": [{"provider": "bedrock", "model": "qwen.qwen3-coder-30b-a3b-v1:0", "weight": 1.0}],
-    "fallbacks": ["bedrock/minimax.minimax-m2.5"],
-    "scope": "virtual_key",
-    "scope_id": "INSTALL_REQUIRED",
-    "priority": 420
-  }
+	{
+		"name": "Agent CR 000 main max",
+		"description": "Deterministic maximum-capability escape hatch.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "model == \"agent-main-max\"",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "zai.glm-5",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/minimax.minimax-m2.5",
+			"bedrock/global.moonshotai.kimi-k3"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 200
+	},
+	{
+		"name": "Agent CR 010 main cheap",
+		"description": "Deterministic inexpensive escape hatch.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "model == \"agent-main-cheap\"",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "nvidia.nemotron-nano-3-30b",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/qwen.qwen3-coder-30b-a3b-v1:0",
+			"bedrock/minimax.minimax-m2.5"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 210
+	},
+	{
+		"name": "Agent CR 020 huge context",
+		"description": "Hard context-capacity route for very large main or worker requests.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "model == \"agent-main-huge\" || model == \"agent-worker-huge\"",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "global.moonshotai.kimi-k3",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/minimax.minimax-m2"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 220
+	},
+	{
+		"name": "Agent CR 030 large scope",
+		"description": "Repository-wide or large-scope main and worker tasks.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "model == \"agent-main-large\" || model == \"agent-worker-large\"",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "global.moonshotai.kimi-k3",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/minimax.minimax-m2"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 230
+	},
+	{
+		"name": "Agent CR 100 main hard decision",
+		"description": "Complex or reasoning-heavy main orchestration and general decision work.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "(model == \"agent-main-orchestrate\" || model == \"agent-main-general\") && (complexity_tier == \"COMPLEX\" || complexity_tier == \"REASONING\")",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "zai.glm-5",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/minimax.minimax-m2.5",
+			"bedrock/global.moonshotai.kimi-k3"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 300
+	},
+	{
+		"name": "Agent CR 110 main hard coding",
+		"description": "Complex or reasoning-heavy main implementation, debugging, and coding tool loops.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "(model == \"agent-main-implement\" || model == \"agent-main-debug\" || model == \"agent-main-tool-loop\") && (complexity_tier == \"COMPLEX\" || complexity_tier == \"REASONING\")",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "qwen.qwen3-coder-480b-a35b-v1:0",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/mistral.devstral-2-123b",
+			"bedrock/minimax.minimax-m2.5"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 310
+	},
+	{
+		"name": "Agent CR 120 main normal coding",
+		"description": "Default main implementation, debugging, and coding tool loops.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "model == \"agent-main-implement\" || model == \"agent-main-debug\" || model == \"agent-main-tool-loop\"",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "qwen.qwen3-coder-30b-a3b-v1:0",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/mistral.devstral-2-123b",
+			"bedrock/qwen.qwen3-coder-480b-a35b-v1:0",
+			"bedrock/minimax.minimax-m2.5"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 320
+	},
+	{
+		"name": "Agent CR 130 main hard explore",
+		"description": "Complex or reasoning-heavy main exploration.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "model == \"agent-main-explore\" && (complexity_tier == \"COMPLEX\" || complexity_tier == \"REASONING\")",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "global.moonshotai.kimi-k3",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/minimax.minimax-m2",
+			"bedrock/zai.glm-5"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 330
+	},
+	{
+		"name": "Agent CR 140 main summarize",
+		"description": "Main summarization and information compression.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "model == \"agent-main-summarize\"",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "nvidia.nemotron-nano-3-30b",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/qwen.qwen3-coder-30b-a3b-v1:0",
+			"bedrock/zai.glm-5"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 340
+	},
+	{
+		"name": "Agent CR 150 main default",
+		"description": "Default main orchestration, exploration, and general work.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "model == \"agent-main-orchestrate\" || model == \"agent-main-explore\" || model == \"agent-main-general\"",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "zai.glm-5",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/minimax.minimax-m2.5",
+			"bedrock/global.moonshotai.kimi-k3"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 350
+	},
+	{
+		"name": "Agent CR 200 worker hard coding",
+		"description": "Complex or reasoning-heavy worker implementation, debugging, and coding tool loops.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "(model == \"agent-worker-implement\" || model == \"agent-worker-debug\" || model == \"agent-worker-tool-loop\") && (complexity_tier == \"COMPLEX\" || complexity_tier == \"REASONING\")",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "qwen.qwen3-coder-480b-a35b-v1:0",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/mistral.devstral-2-123b",
+			"bedrock/minimax.minimax-m2.5"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 400
+	},
+	{
+		"name": "Agent CR 210 worker normal coding",
+		"description": "Default worker implementation, debugging, and coding tool loops.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "model == \"agent-worker-implement\" || model == \"agent-worker-debug\" || model == \"agent-worker-tool-loop\"",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "qwen.qwen3-coder-30b-a3b-v1:0",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/mistral.devstral-2-123b",
+			"bedrock/qwen.qwen3-coder-480b-a35b-v1:0",
+			"bedrock/minimax.minimax-m2.5"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 410
+	},
+	{
+		"name": "Agent CR 220 worker hard reasoning",
+		"description": "Complex or reasoning-heavy worker orchestration and general work.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "(model == \"agent-worker-orchestrate\" || model == \"agent-worker-general\") && (complexity_tier == \"COMPLEX\" || complexity_tier == \"REASONING\")",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "zai.glm-5",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/minimax.minimax-m2.5",
+			"bedrock/global.moonshotai.kimi-k3"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 420
+	},
+	{
+		"name": "Agent CR 230 worker normal reasoning",
+		"description": "Default worker orchestration and general work.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "model == \"agent-worker-orchestrate\" || model == \"agent-worker-general\"",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "qwen.qwen3-coder-30b-a3b-v1:0",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/zai.glm-5",
+			"bedrock/minimax.minimax-m2.5"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 430
+	},
+	{
+		"name": "Agent CR 240 worker hard explore",
+		"description": "Complex or reasoning-heavy worker exploration.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "model == \"agent-worker-explore\" && (complexity_tier == \"COMPLEX\" || complexity_tier == \"REASONING\")",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "global.moonshotai.kimi-k3",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/minimax.minimax-m2",
+			"bedrock/zai.glm-5"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 440
+	},
+	{
+		"name": "Agent CR 250 worker information",
+		"description": "Default worker exploration and summarization.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "model == \"agent-worker-explore\" || model == \"agent-worker-summarize\"",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "nvidia.nemotron-nano-3-30b",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/qwen.qwen3-coder-30b-a3b-v1:0",
+			"bedrock/global.moonshotai.kimi-k3"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 450
+	},
+	{
+		"name": "Agent CR 260 worker default",
+		"description": "Catch-all for worker capability lanes not matched above.",
+		"enabled": true,
+		"chain_rule": false,
+		"cel_expression": "model == \"agent-worker-orchestrate\" || model == \"agent-worker-implement\" || model == \"agent-worker-debug\" || model == \"agent-worker-tool-loop\" || model == \"agent-worker-explore\" || model == \"agent-worker-summarize\" || model == \"agent-worker-general\"",
+		"targets": [
+			{
+				"provider": "bedrock",
+				"model": "qwen.qwen3-coder-30b-a3b-v1:0",
+				"weight": 1.0
+			}
+		],
+		"fallbacks": [
+			"bedrock/nvidia.nemotron-nano-3-30b",
+			"bedrock/zai.glm-5",
+			"bedrock/minimax.minimax-m2.5"
+		],
+		"scope": "virtual_key",
+		"scope_id": "INSTALL_REQUIRED",
+		"priority": 460
+	}
 ]

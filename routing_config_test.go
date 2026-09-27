@@ -1,13 +1,17 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
 )
+
+const expectedRoutingRulesSHA256 = "a402887885c8cd548a0598b1e7357db271f06c46e9240f29a164fbd421660128"
 
 type routingRuleFixture struct {
 	Name          string `json:"name"`
@@ -37,6 +41,9 @@ func TestRoutingConfiguration(t *testing.T) {
 	if err := json.Unmarshal(modelsBytes, &modelConfig); err != nil {
 		t.Fatal(err)
 	}
+	if modelConfig.Scope.ID != "INSTALL_REQUIRED" {
+		t.Fatalf("source model scope id=%q, want install-time placeholder", modelConfig.Scope.ID)
+	}
 	allowed := make(map[string]bool, len(modelConfig.Models))
 	for _, model := range modelConfig.Models {
 		allowed[model] = true
@@ -50,11 +57,23 @@ func TestRoutingConfiguration(t *testing.T) {
 	if err := json.Unmarshal(rulesBytes, &rules); err != nil {
 		t.Fatal(err)
 	}
+	var canonicalRules any
+	if err := json.Unmarshal(rulesBytes, &canonicalRules); err != nil {
+		t.Fatal(err)
+	}
+	canonicalRulesBytes, err := json.Marshal(canonicalRules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprintf("%x", sha256.Sum256(canonicalRulesBytes)); got != expectedRoutingRulesSHA256 {
+		t.Fatalf("routing rules changed: sha256=%s, want %s", got, expectedRoutingRulesSHA256)
+	}
 	if len(rules) == 0 {
 		t.Fatal("routing rule set is empty")
 	}
 	seenNames := map[string]bool{}
 	seenPriorities := map[int]bool{}
+	contextRules := map[string]routingRuleFixture{}
 	env, err := cel.NewEnv(
 		cel.Variable("model", cel.StringType),
 		cel.Variable("complexity_tier", cel.StringType),
@@ -70,6 +89,9 @@ func TestRoutingConfiguration(t *testing.T) {
 			t.Errorf("duplicate rule name or priority: %q / %d", rule.Name, rule.Priority)
 		}
 		seenNames[rule.Name], seenPriorities[rule.Priority] = true, true
+		if strings.Contains(rule.CelExpression, "-huge\"") || strings.Contains(rule.CelExpression, "-large\"") {
+			contextRules[rule.Name] = rule
+		}
 		if rule.Scope != "virtual_key" || rule.ScopeID != modelConfig.Scope.ID {
 			t.Errorf("rule %q has wrong scope", rule.Name)
 		}
@@ -100,5 +122,26 @@ func TestRoutingConfiguration(t *testing.T) {
 	}
 	if !seenNames["Agent CR 000 main max"] || !seenNames["Agent CR 010 main cheap"] {
 		t.Fatal("deterministic max/cheap rules are missing")
+	}
+	if len(contextRules) != 2 {
+		t.Fatalf("context/scope rule count=%d, want 2", len(contextRules))
+	}
+	assertSharedContextRule(t, contextRules["Agent CR 020 huge context"], 220, "agent-main-huge", "agent-worker-huge")
+	assertSharedContextRule(t, contextRules["Agent CR 030 large scope"], 230, "agent-main-large", "agent-worker-large")
+}
+
+func assertSharedContextRule(t *testing.T, rule routingRuleFixture, priority int, mainLane, workerLane string) {
+	t.Helper()
+	if rule.Name == "" {
+		t.Fatalf("missing shared context rule for %s / %s", mainLane, workerLane)
+	}
+	if rule.Priority != priority || !strings.Contains(rule.CelExpression, mainLane) || !strings.Contains(rule.CelExpression, workerLane) {
+		t.Fatalf("unexpected shared context rule: %#v", rule)
+	}
+	if len(rule.Targets) != 1 || rule.Targets[0].Provider != "bedrock" || rule.Targets[0].Model != "global.moonshotai.kimi-k3" {
+		t.Fatalf("rule %q must target Kimi K3", rule.Name)
+	}
+	if len(rule.Fallbacks) != 1 || rule.Fallbacks[0] != "bedrock/minimax.minimax-m2" {
+		t.Fatalf("rule %q must fall back to MiniMax M2", rule.Name)
 	}
 }

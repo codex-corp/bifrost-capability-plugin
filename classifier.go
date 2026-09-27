@@ -24,6 +24,21 @@ var capabilityPriority = []string{
 	CapabilitySummarize,
 }
 
+var largeScopePhrases = []string{
+	"entire repository",
+	"whole repository",
+	"entire codebase",
+	"whole codebase",
+	"repo-wide",
+	"repository-wide",
+	"across the project",
+	"across the repository",
+	"all files",
+	"audit the repository",
+	"migrate all usages",
+	"refactor the whole project",
+}
+
 type SignalEvent struct {
 	Kind   string
 	Text   string
@@ -159,6 +174,16 @@ func isOutputOnlySummary(text string) bool {
 		return false
 	}
 	return !containsAny(text, "fix", "solve", "implement", "change", "edit", "debug", "investigate")
+}
+
+func isLargeScopeTask(text string) bool {
+	text = strings.ToLower(text)
+	for _, phrase := range largeScopePhrases {
+		if strings.Contains(text, phrase) {
+			return true
+		}
+	}
+	return false
 }
 
 func containsAny(text string, values ...string) bool {

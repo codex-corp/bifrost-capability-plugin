@@ -1,107 +1,140 @@
 # Bifrost Capability Plugin
 
-A native Go `PreRequestHook` for [Bifrost](https://github.com/maximhq/bifrost) that routes agent requests by role, capability, and effort.
+A native Go `PreRequestHook` for [Bifrost](https://github.com/maximhq/bifrost) that routes agent requests by role, context/scope, capability, and effort.
 
 The plugin classifies *what the agent is doing*. Bifrost's built-in Complexity Router classifies *how difficult the request is*. CEL rules combine both signals and select the physical model and fallback chain.
 
 ## The idea
 
-One model should not do every kind of work. This plugin turns each request into a simple four-step decision, then sends it to the model best suited to the job.
+One model should not do every kind of work. This plugin turns each request into a small routing decision, then lets Bifrost send it to the model best suited to the job.
 
 ```mermaid
 flowchart TD
     R["A request arrives"] --> ROLE{"1. Who is doing the work?"}
     ROLE -->|"Leads and makes decisions"| MAIN["Main agent"]
     ROLE -->|"Handles a focused task"| WORKER["Worker agent"]
-    MAIN --> CAP{"2. What kind of work is it?"}
-    WORKER --> CAP
+    MAIN --> SCOPE{"2. Is it huge or repository-wide?"}
+    WORKER --> SCOPE
+    SCOPE -->|">= 150k estimated tokens"| HUGE["Huge-context lane"]
+    SCOPE -->|"Latest user task is repo-wide"| LARGE["Large-scope lane"]
+    SCOPE -->|"Otherwise"| CAP{"3. What kind of work is it?"}
     CAP --> TYPES["Plan · Implement · Debug · Use tools · Explore · Summarize"]
-    TYPES --> EFFORT{"3. How demanding is it?"}
-    EFFORT --> LEVELS["Simple · Medium · Complex · Deep reasoning"]
-    LEVELS --> MODEL["4. Choose the best model for this combination"]
+    HUGE --> SHARED["Shared HUGE/LARGE Agent CR rule"]
+    LARGE --> SHARED
+    SHARED --> MODEL["Choose context-capable model"]
+    TYPES --> EFFORT{"4. How demanding is it?"}
+    EFFORT --> LEVELS["Bifrost Complexity Router"]
+    LEVELS --> RULE["Capability Agent CR rule"]
+    RULE --> MODEL
     MODEL --> RESULT["Better quality, lower cost, and automatic fallback"]
 
     classDef question fill:#fff4cc,stroke:#c88a00,color:#332100;
     classDef outcome fill:#dcfce7,stroke:#16803c,color:#082d18;
-    class ROLE,CAP,EFFORT question;
+    class ROLE,SCOPE,CAP,EFFORT question;
     class MODEL,RESULT outcome;
 ```
 
-`ROLE` says who is working. `CAPABILITY` says what they are doing. `COMPLEXITY` says how difficult it is. Bifrost then selects the model and fallback chain.
+`ROLE` says who is working. `SCOPE` recognizes huge payloads and explicit repository-wide tasks. `CAPABILITY` says what the agent is doing. `COMPLEXITY` says how difficult it is. Bifrost then selects the physical model and fallback chain.
 
 ## Main-agent routing example
 
 ```mermaid
 flowchart TD
-    A["agent-main-auto"] --> C{"Detected capability"}
-    C -->|"orchestrate, debug, general"| D["Decision lane"]
-    C -->|"implement, tool-loop"| T["Agent execution lane"]
+    A["agent-main-auto"] --> H{"Estimated input >= 150k tokens?"}
+    H -->|"yes"| HC["agent-main-huge"]
+    H -->|"no"| L{"Latest user task is repo-wide?"}
+    L -->|"yes"| LC["agent-main-large"]
+    L -->|"no"| C{"Detected capability"}
+    C -->|"orchestrate, general"| D["Decision lane"]
+    C -->|"implement, debug, tool-loop"| T["Coding lane"]
     C -->|"explore"| E["Exploration lane"]
     C -->|"summarize"| S["Information lane"]
-    D -->|"COMPLEX or REASONING"| G["Strong reasoning model"]
-    D --> N["Tool-capable main model"]
-    T --> N
-    E -->|"COMPLEX or REASONING"| N
-    E --> Q["Low-cost information model"]
-    S --> Q
+    HC --> SHARED["Shared context Agent CR rule"]
+    LC --> SHARED
+    SHARED --> K["Kimi K3 → MiniMax M2"]
+    D --> CR["Complexity Router"]
+    T --> CR
+    E --> CR
+    S --> CR
+    CR --> RULES["Capability Agent CR rule"]
+    RULES --> M["Configured model + fallbacks"]
 ```
 
-## Claude Code architecture
+## Client-agnostic architecture
 
-Claude Code can keep its familiar Sonnet, Opus, and Haiku slots while Bifrost decides which underlying model should actually serve each request.
+Claude Code, OpenCode, Hermes, and other compatible clients share the same aliases. Clients identify the agent role; the plugin and Bifrost make the remaining decisions.
 
 ```mermaid
 flowchart TD
-    CC["Claude Code"]
+    CLIENTS["Claude Code · OpenCode · Hermes · other clients"]
+    CLIENTS --> MAIN_AUTO["agent-main-auto"]
+    CLIENTS --> WORKER_AUTO["agent-worker-auto"]
+    CLIENTS --> MAIN_MAX["agent-main-max"]
+    CLIENTS --> MAIN_CHEAP["agent-main-cheap"]
 
-    CC --> SONNET["Sonnet slot"]
-    CC --> OPUS["Opus slot"]
-    CC --> HAIKU["Haiku slot"]
-    CC --> SUB["Claude subagents"]
+    MAIN_AUTO --> ROUTER["Role → HUGE/LARGE → capability"]
+    WORKER_AUTO --> ROUTER
+    ROUTER -->|"HUGE or LARGE"| SHARED["Shared context Agent CR rule"]
+    ROUTER -->|"Normal"| CAPABILITY["Capability lane"]
+    CAPABILITY --> COMPLEXITY["Bifrost complexity tier"]
+    COMPLEXITY --> RULES["Capability Agent CR rule"]
+    SHARED --> MODELS["Configured model + fallbacks"]
+    RULES --> MODELS
 
-    SONNET --> MAIN_AUTO["agent-main-auto"]
-    OPUS --> MAIN_MAX["agent-main-max"]
-    HAIKU --> MAIN_CHEAP["agent-main-cheap"]
-    SUB --> WORKER_AUTO["agent-worker-auto"]
-
-    MAIN_AUTO --> MAIN_CAP["Capability Router"]
-    MAIN_CAP --> MAIN_KIND["Orchestrate · Implement · Debug · Tool loop · Explore · Summarize"]
-    MAIN_KIND --> MAIN_EFFORT["Complexity tier"]
-    MAIN_EFFORT --> MATRIX["Main routing matrix"]
-    MATRIX --> GLM["GLM-5"]
-    MATRIX --> MINIMAX["MiniMax M2.5"]
-    MATRIX --> INFO["Nova Lite / Qwen"]
-
-    MAIN_MAX --> GLM
-    MAIN_CHEAP --> NOVA["Nova Lite"]
-
-    WORKER_AUTO --> WORKER_CAP["Capability Router"]
-    WORKER_CAP --> WORKER_EFFORT["Complexity tier"]
-    WORKER_EFFORT --> Q30["Qwen Coder 30B"]
-    WORKER_EFFORT --> Q480["Qwen Coder 480B"]
+    MAIN_MAX --> RULES
+    MAIN_CHEAP --> RULES
 
     classDef entry fill:#e0f2fe,stroke:#0369a1,color:#082f49;
     classDef router fill:#fef3c7,stroke:#b45309,color:#451a03;
     classDef model fill:#dcfce7,stroke:#15803d,color:#052e16;
     class MAIN_AUTO,MAIN_MAX,MAIN_CHEAP,WORKER_AUTO entry;
-    class MAIN_CAP,MAIN_EFFORT,MATRIX,WORKER_CAP,WORKER_EFFORT router;
-    class GLM,MINIMAX,INFO,NOVA,Q30,Q480 model;
+    class ROUTER,SHARED,CAPABILITY,COMPLEXITY,RULES router;
+    class MODELS model;
 ```
-
-The Sonnet slot becomes the dynamic main agent. Opus and Haiku become deterministic maximum and inexpensive escape hatches. Claude subagents use the worker lane. The names remain familiar to Claude Code; Bifrost owns the real model choice.
 
 The plugin never pins a provider or physical model. It rewrites only these aliases:
 
 ```text
-agent-main-auto   -> agent-main-{capability}
-agent-worker-auto -> agent-worker-{capability}
+agent-main-auto   -> agent-main-{huge|large|capability}
+agent-worker-auto -> agent-worker-{huge|large|capability}
 ```
+
+HUGE uses `ceil(non-opaque UTF-8 textual bytes / 4)` across the complete current textual request. Non-opaque map/property names are included because schema and tool keys consume context. The default threshold is `150000` estimated input tokens. Image URLs, file/base64 data, data URLs, and opaque data fields are excluded.
+
+LARGE examines only the latest non-empty user message in the complete request history. A later focused user task replaces an older repository-wide task as the anchor; assistant messages, tool calls, and tool results cannot trigger LARGE. HUGE always takes precedence over LARGE, and LARGE takes precedence over capability classification.
 
 All other traffic bypasses the plugin. Deterministic aliases such as `agent-main-max`, `agent-main-cheap`, and existing `codex-*` routes remain under Bifrost control.
 
+The current model policy is deliberately split by strength:
+
+| Model | Role |
+|---|---|
+| GLM-5 | Main reasoning and orchestration |
+| MiniMax M2.5 | Agentic/reasoning fallback |
+| MiniMax M2 | One-million-token context fallback |
+| Kimi K3 | LARGE/HUGE requests and hard exploration |
+| Qwen Coder 480B | Hard coding and debugging |
+| Qwen Coder 30B | Normal coding |
+| Devstral 2 | Coding fallback |
+| Nemotron Nano 30B | Cheap, simple, and summarization work |
+
+Two shared rules serve both roles before the capability rules:
+
+```text
+Agent CR 020 huge context (priority 220)
+  agent-main-huge | agent-worker-huge
+  -> Kimi K3 -> MiniMax M2
+
+Agent CR 030 large scope (priority 230)
+  agent-main-large | agent-worker-large
+  -> Kimi K3 -> MiniMax M2
+```
+
+All existing capability rules remain authoritative in `config/routing-rules.json`.
+
 ## Configure the Complexity Router
 
-The capability plugin supplies the `role` and `capability` signals. Bifrost's
+The capability plugin supplies the role-derived lane, including scope or capability. Bifrost's
 Complexity Router supplies `complexity_tier`; the Agent CR CEL rules combine
 both values. Enable the Complexity Router before enabling live Agent CR rules.
 
@@ -140,7 +173,7 @@ curl -fsS http://127.0.0.1:10020/api/routing/complexity-analyzer-config | jq .
 The plugin must be placed before built-in governance (`pre_builtin`, order `0`)
 so its capability metadata is present when the Complexity Router and CEL rules
 run. Configure the Virtual Key to permit the embedding provider plus every
-Agent CR target and fallback. `router.sh apply-rules` installs only the nine
+Agent CR target and fallback. `router.sh apply-rules` installs only the
 additive Agent CR rules; it does not modify existing `OC v2` rules.
 
 ## Release compatibility
@@ -197,6 +230,7 @@ Enable configuration and paste the plugin-specific object:
   "shadow_mode": true,
   "confidence_threshold": 0.7,
   "history_messages": 8,
+  "huge_token_threshold": 150000,
   "active_roles": {"main": true, "worker": true},
   "aliases": {
     "main": "agent-main-auto",
@@ -213,7 +247,7 @@ save. The resulting placement must be `pre_builtin`, order `0`, so capability
 metadata exists before governance routing evaluates the request.
 
 Configure the Bedrock model inventory and Virtual Key, then install only the
-nine additive routing rules. This does not replace the Dashboard-managed plugin
+additive routing rules. This does not replace the Dashboard-managed plugin
 path or configuration.
 
 ```bash
@@ -232,9 +266,9 @@ matches are correct, edit the plugin in the Dashboard and change
 - Linux `amd64`
 - Docker
 - `curl`, `jq`, Python 3, `sha256sum`, and `flock`
-- Bifrost v2.2.0 source at the matching `transports/v2.2.0` revision
-- Go 1.27.0, Bifrost core v1.9.0, and framework v1.7.0
-- A running Bifrost v2.2.0 gateway for validation and installation
+- Bifrost v2.2.3 source at the matching `transports/v2.2.3` revision
+- Go 1.27.0, Bifrost core v1.10.2, and framework v1.7.4
+- A running Bifrost v2.2.3 gateway for validation and installation
 - Bifrost Complexity Router configured and available
 - An active Virtual Key that permits Bedrock and every configured model
 - Dashboard administrator authentication when creating or changing a custom plugin path
@@ -246,8 +280,8 @@ Go plugins require the host and plugin to share the exact source graph, Go toolc
 Clone the matching Bifrost source:
 
 ```bash
-git clone --branch transports/v2.2.0 https://github.com/maximhq/bifrost.git /tmp/bifrost-v2.2.0
-cd /tmp/bifrost-v2.2.0
+git clone --branch transports/v2.2.3 https://github.com/maximhq/bifrost.git /tmp/bifrost-v2.2.3
+cd /tmp/bifrost-v2.2.3
 ```
 
 Clone this repository and configure the deployment templates:
@@ -382,8 +416,8 @@ Available entry aliases:
 
 | Alias | Purpose |
 |---|---|
-| `agent-main-auto` | Capability-routed main agent |
-| `agent-worker-auto` | Capability-routed worker |
+| `agent-main-auto` | Scope- and capability-routed main agent |
+| `agent-worker-auto` | Scope- and capability-routed worker |
 | `agent-main-max` | Deterministic maximum-capability route |
 | `agent-main-cheap` | Deterministic inexpensive route |
 
@@ -466,7 +500,7 @@ The plugin is disabled, still in shadow mode, or ordered after provider resoluti
 
 ### Unexpected model
 
-Inspect Bifrost routing logs for the capability lane, complexity tier, first matching rule, selected target, and fallback status. Avoid mixing unrelated capability instructions in one test prompt.
+Inspect Bifrost routing logs for `scope`, `estimated_input_tokens`, capability lane, complexity tier, first matching rule, selected target, and fallback status. Avoid mixing unrelated capability instructions in one test prompt.
 
 ## Development
 

@@ -15,6 +15,9 @@ func TestConfigDefaultsAndOverrides(t *testing.T) {
 	if cfg.ShadowMode || cfg.ConfidenceThreshold != 0.8 || cfg.HistoryMessages != 6 {
 		t.Fatalf("unexpected config: %#v", cfg)
 	}
+	if cfg.HugeTokenThreshold != 150000 {
+		t.Fatalf("huge token threshold=%d, want 150000", cfg.HugeTokenThreshold)
+	}
 	if cfg.ActiveRoles["worker"] {
 		t.Fatal("worker override was not retained")
 	}
@@ -27,6 +30,22 @@ func TestInvalidConfig(t *testing.T) {
 	_, err := parseConfig(map[string]any{"confidence_threshold": 2.0})
 	if err == nil {
 		t.Fatal("expected invalid confidence threshold")
+	}
+}
+
+func TestHugeTokenThresholdOverrideAndValidation(t *testing.T) {
+	cfg, err := parseConfig(map[string]any{"huge_token_threshold": 42})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.HugeTokenThreshold != 42 {
+		t.Fatalf("huge token threshold=%d, want 42", cfg.HugeTokenThreshold)
+	}
+	if _, err := parseConfig(map[string]any{"huge_token_threshold": 0}); err == nil {
+		t.Fatal("expected invalid huge token threshold")
+	}
+	if _, err := parseConfig(map[string]any{"huge_token_threshold": -1}); err == nil {
+		t.Fatal("expected negative huge token threshold to fail")
 	}
 }
 

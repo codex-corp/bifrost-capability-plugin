@@ -9,12 +9,12 @@ PLUGIN_NAME="agent-capability-router"
 PLUGIN_SO="$ROOT_DIR/.build/matched/$PLUGIN_NAME.so"
 MATCHED_HOST="$ROOT_DIR/.build/matched/bifrost-http"
 COMPATIBILITY_MARKER="$ROOT_DIR/.build/matched/compatible-runtime.json"
-RUNTIME_BIN="${BIFROST_RUNTIME_BIN:-$HOME/.local/lib/bifrost/v2.2.0-matched/bifrost-http}"
+RUNTIME_BIN="${BIFROST_RUNTIME_BIN:-$HOME/.local/lib/bifrost/v2.2.3-matched/bifrost-http}"
 INSTALLED_SO="$PLUGIN_DIR/$PLUGIN_NAME.so"
 BACKUP_ROOT="$ROOT_DIR/backups"
 INSTALL_CONFIG="$ROOT_DIR/.local/install.json"
 GO_IMAGE="golang:1.27.0"
-EXPECTED_TRANSPORT="${BIFROST_EXPECTED_TRANSPORT:-\"v2.2.0\"}"
+EXPECTED_TRANSPORT="${BIFROST_EXPECTED_TRANSPORT:-\"v2.2.3\"}"
 
 api() {
   local method="$1" path="$2"
@@ -44,7 +44,7 @@ status() {
   require_commands
   echo "Bifrost health: $(api GET /health | jq -r '.status')"
   echo "Bifrost version: $(api GET /api/version | jq -r '.')"
-  echo "Runtime target: linux/amd64, Go 1.27.0, core v1.9.0, framework v1.7.0"
+  echo "Runtime target: linux/amd64, Go 1.27.0, core v1.10.2, framework v1.7.4"
   if [[ -f "$COMPATIBILITY_MARKER" && -f "$RUNTIME_BIN" ]]; then
     local expected_host current_host
     expected_host="$(jq -r '.host_sha256' "$COMPATIBILITY_MARKER")"

@@ -14,8 +14,15 @@
     "summarize",
     "general"
   ],
+  "routing_precedence": [
+    "huge",
+    "large",
+    "capability"
+  ],
   "generated_lanes": {
     "main": [
+      "agent-main-huge",
+      "agent-main-large",
       "agent-main-orchestrate",
       "agent-main-implement",
       "agent-main-debug",
@@ -25,6 +32,8 @@
       "agent-main-general"
     ],
     "worker": [
+      "agent-worker-huge",
+      "agent-worker-large",
       "agent-worker-orchestrate",
       "agent-worker-implement",
       "agent-worker-debug",

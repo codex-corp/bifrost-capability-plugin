@@ -1,11 +1,11 @@
 {
   "runtime": {
-    "transport": "v2.0.0",
+    "transport": "v2.2.3",
     "go": "1.27.0",
     "goos": "linux",
     "goarch": "amd64",
-    "core": "v1.8.3",
-    "framework": "v1.6.0"
+    "core": "v1.10.2",
+    "framework": "v1.7.4"
   },
   "scope": {
     "type": "virtual_key",
@@ -15,9 +15,11 @@
   "models": {
     "glm5": "bedrock/zai.glm-5",
     "minimax_m25": "bedrock/minimax.minimax-m2.5",
-    "kimi_thinking": "bedrock/moonshot.kimi-k2-thinking",
+    "minimax_m2": "bedrock/minimax.minimax-m2",
+    "kimi_k3": "bedrock/global.moonshotai.kimi-k3",
     "qwen_coder_480b": "bedrock/qwen.qwen3-coder-480b-a35b-v1:0",
     "qwen_coder_30b": "bedrock/qwen.qwen3-coder-30b-a3b-v1:0",
-    "nova_lite": "bedrock/apac.amazon.nova-lite-v1:0"
+    "devstral_2": "bedrock/mistral.devstral-2-123b",
+    "nemotron_nano_30b": "bedrock/nvidia.nemotron-nano-3-30b"
   }
 }
