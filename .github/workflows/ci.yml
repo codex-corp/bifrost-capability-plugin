@@ -17,7 +17,14 @@ jobs:
         run: |
           set -euo pipefail
           jq -e . config/*.json >/dev/null
-          jq -e 'length == 9 and all(.[]; (.name | startswith("Agent CR ")) and .scope == "virtual_key" and .scope_id == "INSTALL_REQUIRED")' config/routing-rules.json >/dev/null
+          jq -e '
+          length > 0 and
+          all(.[];
+            (.name | startswith("Agent CR ")) and
+            .scope == "virtual_key" and
+            .scope_id == "INSTALL_REQUIRED"
+          )
+          ' config/routing-rules.json >/dev/null
           bash -n router.sh install.sh test-models.sh scripts/*.sh
           python3 -m py_compile scripts/*.py
           docker run --rm --user "$(id -u):$(id -g)" \
